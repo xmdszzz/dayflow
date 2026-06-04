@@ -16,7 +16,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
     const config = {} as Record<string, unknown>
     for (const k of keys) {
       const v = await window.api.invoke('config:get', k) as string
-      config[k] = k === 'reminder_minutes' ? parseInt(v) || 10 : k === 'open_at_login' ? v === 'true' : v
+      config[k] = k === 'reminder_minutes' ? (() => { const n = parseInt(v, 10); return isNaN(n) ? 10 : n })() : k === 'open_at_login' ? v === 'true' : v
     }
     set({ config: config as unknown as AppConfig, loaded: true })
   },

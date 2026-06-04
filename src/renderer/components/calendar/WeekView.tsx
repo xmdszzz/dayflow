@@ -18,7 +18,8 @@ export default function WeekView() {
 
   const tasksByDate = useMemo(() => {
     const map: Record<string, typeof tasks> = {}
-    for (const d of days) map[format(d, 'yyyy-MM-dd')] = tasks.filter((t) => t.date === format(d, 'yyyy-MM-dd'))
+    for (const d of days) map[format(d, 'yyyy-MM-dd')] = []
+    for (const t of tasks) { const key = t.date; if (map[key]) map[key].push(t) }
     return map
   }, [tasks, days])
 
