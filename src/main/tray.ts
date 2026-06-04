@@ -27,6 +27,9 @@ export function createTray(): void {
     const win = BrowserWindow.getAllWindows()[0]
     if (win) { win.show(); win.focus() }
   })
+
+  // Refresh tray menu every minute
+  setInterval(updateTrayMenu, 60_000)
 }
 
 export function updateTrayMenu(): void {
@@ -58,6 +61,3 @@ export function updateTrayMenu(): void {
 
   if (tray) tray.setContextMenu(menu)
 }
-
-// Refresh tray menu every minute
-setInterval(updateTrayMenu, 60_000)
