@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron'
 import { createTask, updateTask, listTasks, getConfig, setConfig } from './db'
 import type { TaskInput } from '../shared/types'
+import { sendChatMessage } from './llm'
+import { resolveConfirmation, cancelConfirmation } from './tools/interact-tools'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('task:list', (_e, startDate: string, endDate: string) => {
@@ -29,5 +31,17 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('config:set', (_e, key: string, value: string) => {
     return setConfig(key, value)
+  })
+
+  ipcMain.handle('chat:send', async (_e, userMessage: string, explicitTaskId?: string) => {
+    return sendChatMessage(userMessage, explicitTaskId)
+  })
+
+  ipcMain.handle('chat:confirm', (_e, choice: string) => {
+    resolveConfirmation(choice)
+  })
+
+  ipcMain.handle('chat:cancel', () => {
+    cancelConfirmation()
   })
 }

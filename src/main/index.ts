@@ -2,6 +2,9 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { initDatabase } from './db'
 import { registerIpcHandlers } from './ipc-handlers'
+import './tools/task-tools'
+import './tools/system-tools'
+import './tools/interact-tools'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
