@@ -2,9 +2,14 @@ appId: com.copy2list.app
 productName: copy2list
 directories:
   output: dist
+files:
+  - out/**/*
+  - resources/**/*
 win:
   target: nsis
   icon: resources/icon.ico
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

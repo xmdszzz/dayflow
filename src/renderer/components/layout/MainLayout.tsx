@@ -6,6 +6,7 @@ import MonthView from '../calendar/MonthView'
 import WeekView from '../calendar/WeekView'
 import TodayView from '../calendar/TodayView'
 import ChatPanel from '../chat/ChatPanel'
+import SettingsDialog from '../settings/SettingsDialog'
 
 export default function MainLayout() {
   const view = useViewStore((s) => s.view)
@@ -14,7 +15,12 @@ export default function MainLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [chatVisible, setChatVisible] = useState(true)
 
-  useEffect(() => { loadConfig() }, [])
+  useEffect(() => { loadConfig() }, [loadConfig])
+
+  useEffect(() => {
+    const unsub = window.api.on('open-settings', () => setSettingsOpen(true))
+    return () => { unsub() }
+  }, [])
 
   return (
     <div className="flex-1 flex">
@@ -32,6 +38,7 @@ export default function MainLayout() {
           💬
         </button>
       )}
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   )
 }

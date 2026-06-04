@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { createTask, updateTask, listTasks, getConfig, setConfig } from './db'
 import type { TaskInput } from '../shared/types'
 import { sendChatMessage } from './llm'
@@ -43,5 +43,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('chat:cancel', () => {
     cancelConfirmation()
+  })
+
+  ipcMain.handle('open-settings', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) win.webContents.send('open-settings')
   })
 }
