@@ -6,7 +6,6 @@
     "strict": true,
     "esModuleInterop": true,
     "outDir": "./out",
-    "declaration": true,
     "types": ["node"]
   },
   "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "electron.vite.config.ts"]
