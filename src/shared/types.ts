@@ -4,10 +4,13 @@ export type TaskStatus = 'pending' | 'done' | 'cancelled' | 'expired'
 export interface Task {
   id: string
   date: string          // YYYY-MM-DD
-  time: string          // HH:mm
+  start_time: string    // HH:mm
+  end_time: string      // HH:mm
+  title: string         // short summary label (~50 chars)
+  notes: string         // free-text details / context (pre-execution)
+  review: string        // retrospective content written after task completion
   place: string
   person: string
-  event: string
   status: TaskStatus
   chat_count: number
   notified: number       // 0 | 1
@@ -17,10 +20,12 @@ export interface Task {
 
 export interface TaskInput {
   date: string
-  time: string
+  start_time: string
+  end_time: string
+  title: string
+  notes?: string
   place?: string
   person?: string
-  event: string
 }
 
 // ============ 聊天 ============
@@ -63,6 +68,8 @@ export interface AppConfig {
   reminder_minutes: number
   open_at_login: boolean
   theme: 'dark' | 'light'
+  day_start: string    // HH:mm, e.g. "08:00"
+  day_end: string      // HH:mm, e.g. "22:00"
 }
 
 // ============ IPC 通道 ============

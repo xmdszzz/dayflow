@@ -1,5 +1,5 @@
-appId: com.copy2list.app
-productName: copy2list
+appId: com.dayflow.app
+productName: DayFlow
 directories:
   output: dist
 files:

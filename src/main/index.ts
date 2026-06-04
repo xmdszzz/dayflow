@@ -1,6 +1,6 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { initDatabase } from './db'
+import { initDatabase, getConfig, getDatabase } from './db'
 import { registerIpcHandlers } from './ipc-handlers'
 import { compressDate } from './compressor'
 import { format, subDays } from 'date-fns'
@@ -20,6 +20,7 @@ function createWindow(): void {
     minHeight: 600,
     frame: false,
     titleBarStyle: 'hidden',
+    icon: join(__dirname, '../../resources/app-icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -27,6 +28,13 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => mainWindow!.show())
+
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send('window:stateChanged', 'maximized')
+  })
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send('window:stateChanged', 'unmaximized')
+  })
 
   mainWindow.on('close', (e: Event) => {
     e.preventDefault()
@@ -52,6 +60,17 @@ function scheduleCompression(): void {
 
 app.whenReady().then(() => {
   initDatabase()
+  // Mark overdue pending tasks as expired (runs at startup + every 30s)
+  const expireQuery = () => {
+    try {
+      const db = getDatabase()
+      db.prepare("UPDATE tasks SET status='expired' WHERE status='pending' AND datetime(date || ' ' || start_time) < datetime('now')").run()
+    } catch { /* db not ready yet */ }
+  }
+  expireQuery()
+  setInterval(expireQuery, 30_000)
+  // Apply open-at-login setting from DB
+  app.setLoginItemSettings({ openAtLogin: getConfig('open_at_login') === 'true' })
   registerIpcHandlers()
   createWindow()
   createTray()

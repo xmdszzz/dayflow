@@ -1,5 +1,6 @@
 import { addDays, addWeeks, addMonths, nextDay, format as fmtDate } from 'date-fns'
 import { toolRegistry } from './registry'
+import { getFreeSlots } from '../db'
 
 type Day = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
@@ -75,5 +76,26 @@ toolRegistry.register({
     } catch {
       return { success: false, data: null, error: `Cannot resolve: ${expression}` }
     }
+  },
+})
+
+toolRegistry.register({
+  name: 'find_free_slots',
+  description: '查找指定日期的空闲时间段。用于帮助用户在已有日程之间插入新任务。返回按时间排序的空闲时段列表。',
+  parameters: {
+    type: 'object',
+    properties: {
+      date: { type: 'string', description: '查询日期 YYYY-MM-DD' },
+      min_duration: { type: 'number', description: '最小时长（分钟），用于过滤过短的时段' },
+    },
+    required: ['date'],
+  },
+  async handler(args) {
+    const { date, min_duration } = args as Record<string, unknown>
+    const slots = getFreeSlots(date as string)
+    const filtered = typeof min_duration === 'number'
+      ? slots.filter((s) => s.duration_minutes >= (min_duration as number))
+      : slots
+    return { success: true, data: { date, slots: filtered } }
   },
 })

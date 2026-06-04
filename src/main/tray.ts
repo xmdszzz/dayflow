@@ -1,6 +1,6 @@
 import { Tray, Menu, app, BrowserWindow, nativeImage } from 'electron'
 import path from 'path'
-import { getPendingTasks } from './db'
+import { getTodayPendingTasks } from './db'
 
 let tray: Tray | null = null
 
@@ -20,7 +20,7 @@ export function createTray(): void {
     tray = new Tray(nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMklEQVQ4T2NkYPj/n4EBBJgYKAQM1AyYgGpegCoFqjY+sLMBHmCgBgAAAP//AwBpXIJcGrU8ZwAAAABJRU5ErkJggg=='))
   }
 
-  tray.setToolTip('copy2list')
+  tray.setToolTip('DayFlow')
   updateTrayMenu()
 
   tray.on('double-click', () => {
@@ -33,9 +33,15 @@ export function createTray(): void {
 }
 
 export function updateTrayMenu(): void {
-  const tasks = getPendingTasks()
+  let tasks: { start_time: string; title: string }[] = []
+  try {
+    tasks = getTodayPendingTasks()
+  } catch {
+    // Database not ready yet, show empty menu
+  }
+
   const taskItems = tasks.slice(0, 5).map((t) => ({
-    label: `${t.time} · ${t.event}`,
+    label: `${t.start_time} · ${t.title}`,
     enabled: false,
   }))
 

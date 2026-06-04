@@ -9,10 +9,10 @@ interface ConfigState {
 }
 
 export const useConfigStore = create<ConfigState>((set) => ({
-  config: { api_key: '', reminder_minutes: 10, open_at_login: false, theme: 'dark' },
+  config: { api_key: '', reminder_minutes: 10, open_at_login: false, theme: 'dark', day_start: '08:00', day_end: '22:00' },
   loaded: false,
   load: async () => {
-    const keys: (keyof AppConfig)[] = ['api_key', 'reminder_minutes', 'open_at_login', 'theme']
+    const keys: (keyof AppConfig)[] = ['api_key', 'reminder_minutes', 'open_at_login', 'theme', 'day_start', 'day_end']
     const config = {} as Record<string, unknown>
     for (const k of keys) {
       const v = await window.api.invoke('config:get', k) as string

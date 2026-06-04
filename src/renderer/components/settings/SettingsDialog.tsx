@@ -9,11 +9,15 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [apiKey, setApiKey] = useState(config.api_key)
   const [reminderMinutes, setReminderMinutes] = useState(config.reminder_minutes)
   const [openAtLogin, setOpenAtLogin] = useState(config.open_at_login)
+  const [dayStart, setDayStart] = useState(config.day_start)
+  const [dayEnd, setDayEnd] = useState(config.day_end)
 
   useEffect(() => {
     setApiKey(config.api_key)
     setReminderMinutes(config.reminder_minutes)
     setOpenAtLogin(config.open_at_login)
+    setDayStart(config.day_start)
+    setDayEnd(config.day_end)
   }, [config, open])
 
   if (!open) return null
@@ -22,14 +26,16 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     await set('api_key', apiKey)
     await set('reminder_minutes', reminderMinutes)
     await set('open_at_login', openAtLogin)
+    await set('day_start', dayStart)
+    await set('day_end', dayEnd)
     onClose()
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#1e1e2e] border border-[#313244] rounded-xl w-[420px] p-6">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-[#1e1e2e] border border-[#313244] rounded-xl w-[420px] p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold">设置</h2>
+          <h2 className="text-lg font-semibold">⚙️ 设置</h2>
           <button onClick={onClose} className="text-[#6c7086] hover:text-[#cdd6f4]"><X size={18} /></button>
         </div>
         <div className="space-y-4">
@@ -49,6 +55,19 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <option value={30}>30 分钟</option>
             </select>
           </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-[#a6adc8] block mb-1">每日开始</label>
+              <input type="time" value={dayStart} onChange={(e) => setDayStart(e.target.value)}
+                className="w-full bg-[#313244] text-[#cdd6f4] text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-[#cba6f7]" />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-[#a6adc8] block mb-1">每日结束</label>
+              <input type="time" value={dayEnd} onChange={(e) => setDayEnd(e.target.value)}
+                className="w-full bg-[#313244] text-[#cdd6f4] text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-[#cba6f7]" />
+            </div>
+          </div>
+          <p className="text-[10px] text-[#6c7086]">每日时间段用于查询空闲时段（find_free_slots）</p>
           <div className="flex items-center justify-between">
             <label className="text-xs text-[#a6adc8]">开机自启</label>
             <button onClick={() => setOpenAtLogin(!openAtLogin)}

@@ -1,4 +1,4 @@
-import { Notification } from 'electron'
+import { Notification, BrowserWindow } from 'electron'
 import { getTasksDueIn, markNotified, getNextReminderTime, getConfig } from './db'
 
 let timer: ReturnType<typeof setInterval> | null = null
@@ -29,11 +29,10 @@ function checkAndNotify(): void {
   const tasks = getTasksDueIn(minutes)
   for (const task of tasks) {
     new Notification({
-      title: `⏰ ${minutes}分钟后 · ${task.event}`,
-      body: `📍 ${task.place || '—'}  👤 ${task.person || '—'}\n🕐 ${task.date} ${task.time}`,
+      title: `⏰ ${minutes}分钟后 · ${task.title}`,
+      body: `📍 ${task.place || '—'}  👤 ${task.person || '—'}\n🕐 ${task.date} ${task.start_time}-${task.end_time}`,
       silent: false,
     }).on('click', () => {
-      const { BrowserWindow } = require('electron')
       const win = BrowserWindow.getAllWindows()[0]
       if (win) { win.show(); win.focus(); win.webContents.send('reminder:on-fire', task.id) }
     })

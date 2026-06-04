@@ -1,6 +1,6 @@
-import { getMessagesForDate, saveMemory } from './db'
-import { getConfig } from './db'
+import { getMessagesForDate, saveMemory, getConfig } from './db'
 import OpenAI from 'openai'
+import { format } from 'date-fns'
 
 export async function compressDate(date: string): Promise<void> {
   const messages = getMessagesForDate(date)
@@ -31,4 +31,10 @@ export async function compressDate(date: string): Promise<void> {
     task_count: messages.length,
     keywords: JSON.stringify(result.keywords || []),
   })
+}
+
+/** Triggered immediately when a task is completed or cancelled — compresses today's conversations */
+export function compressToday(): void {
+  const today = format(new Date(), 'yyyy-MM-dd')
+  compressDate(today).catch(() => {})
 }

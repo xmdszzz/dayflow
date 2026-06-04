@@ -1,7 +1,5 @@
-export const TASK_COLORS = ['#f38ba8', '#89b4fa', '#a6e3a1', '#fab387', '#cba6f7', '#f9e2af'] as const
+﻿const COLORS = ['#f38ba8', '#89b4fa', '#a6e3a1', '#fab387', '#cba6f7', '#f9e2af']
 
-export function getTaskColor(taskId: string): string {
-  let hash = 0
-  for (let i = 0; i < taskId.length; i++) hash = ((hash << 5) - hash) + taskId.charCodeAt(i)
-  return TASK_COLORS[Math.abs(hash) % TASK_COLORS.length]
+export function getTaskColor(id: string): string {
+  return COLORS[id.charCodeAt(0) % COLORS.length]
 }

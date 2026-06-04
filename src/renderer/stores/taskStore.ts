@@ -7,7 +7,9 @@ interface TaskState {
   loading: boolean
   loadTasks: (start: string, end: string) => Promise<void>
   addTask: (input: TaskInput) => Promise<Task>
-  updateTask: (id: string, patch: Partial<Pick<Task, 'date'|'time'|'place'|'person'|'event'|'status'>>) => Promise<void>
+  updateTask: (id: string, patch: Partial<Pick<Task, 'date'|'start_time'|'end_time'|'title'|'notes'|'place'|'person'|'status'>>) => Promise<void>
+  cancelTask: (id: string) => Promise<void>
+  reactivateTask: (id: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   completeTask: (id: string) => Promise<void>
   selectDate: (date: string) => void
@@ -30,6 +32,14 @@ export const useTaskStore = create<TaskState>((set) => ({
   updateTask: async (id, patch) => {
     await window.api.invoke('task:update', id, patch)
     set((s) => ({ tasks: s.tasks.map((t) => t.id === id ? { ...t, ...patch } : t) }))
+  },
+  cancelTask: async (id) => {
+    await window.api.invoke('task:cancel', id)
+    set((s) => ({ tasks: s.tasks.map((t) => t.id === id ? { ...t, status: 'cancelled' as const } : t) }))
+  },
+  reactivateTask: async (id) => {
+    await window.api.invoke('task:reactivate', id)
+    set((s) => ({ tasks: s.tasks.map((t) => t.id === id ? { ...t, status: 'pending' as const } : t) }))
   },
   deleteTask: async (id) => {
     await window.api.invoke('task:delete', id)

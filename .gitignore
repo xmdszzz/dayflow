@@ -5,3 +5,9 @@ dist/
 .cache/
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+*.db
+*.db-wal
+*.db-shm
+coverage/
