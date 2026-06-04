@@ -1,0 +1,237 @@
+<h2>Task Routing — 每条消息先路由到 Task Node</h2>
+<p class="subtitle">匹配度判断 → 路由到已有 Node / 新建 Node</p>
+
+<div class="section">
+  <h3>🔀 决策流程图</h3>
+  <div class="mockup">
+    <div class="mockup-header">每条 user message 的处理链路</div>
+    <div class="mockup-body">
+      <div style="font-family: monospace; font-size: 11px; line-height: 1.6;">
+
+        <div style="text-align: center; background: #f9e2af; color: #1e1e2e; padding: 6px; border-radius: 4px; margin-bottom: 8px;">
+          👤 用户输入："把会议改到下午3点"
+        </div>
+        <div style="text-align: center; color: #cba6f7; margin-bottom: 4px;">↓</div>
+        <div style="text-align: center; background: #45475a; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+          <span style="color: #f9e2af; font-weight: 600;">Step 1: 构建候选池</span><br>
+          <span style="font-size: 10px; color: #a6adc8;">
+            收集所有 status=pending 且未过期的 Task Node<br>
+            每个 Node 带上它的 chat_messages 摘要<br>
+            作为候选池发给 LLM
+          </span>
+        </div>
+        <div style="text-align: center; color: #cba6f7; margin-bottom: 4px;">↓</div>
+        <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+          <div style="flex: 1; text-align: center; background: #45475a; padding: 8px; border-radius: 6px;">
+            <span style="color: #f9e2af; font-weight: 600;">Step 2: LLM 匹配判断</span><br>
+            <span style="font-size: 10px; color: #a6adc8;">
+              传入候选池 + 用户输入<br>
+              LLM 调用 route_message<br>
+              返回最匹配的 task_id<br>
+              或返回 null（无匹配）
+            </span>
+          </div>
+        </div>
+        <div style="text-align: center; color: #cba6f7; margin-bottom: 4px;">↓</div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+          <div style="flex: 1; background: #a6e3a1; color: #1e1e2e; padding: 10px; border-radius: 6px; text-align: center;">
+            <span style="font-weight: 600;">✅ 命中已有 task</span><br>
+            <span style="font-size: 10px;">LLM 返回 task_id = "t-001"</span><br>
+            <span style="font-size: 10px; margin-top: 4px; display: block; color: #1e1e2e;">
+              → 消息挂载到 t-001<br>
+              → LLM 接着判断意图 update/delete/query
+            </span>
+          </div>
+          <div style="flex: 1; background: #cba6f7; color: #1e1e2e; padding: 10px; border-radius: 6px; text-align: center;">
+            <span style="font-weight: 600;">🆕 无匹配</span><br>
+            <span style="font-size: 10px;">LLM 返回 task_id = null</span><br>
+            <span style="font-size: 10px; margin-top: 4px; display: block; color: #1e1e2e;">
+              → LLM 调用 add_task 创建新 Node<br>
+              → 消息挂载到新 task_id
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🧠 LLM 路由 Prompt (核心)</h3>
+
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Route Function 定义</div>
+      <div class="mockup-body">
+        <pre style="font-size: 10px; color: #a6e3a1; line-height: 1.5;">
+<span style="color: #f9e2af;">route_message</span> {
+  <span style="color: #89b4fa;">task_id</span>: string | null,
+  <span style="color: #89b4fa;">confidence</span>: 0-1,
+  <span style="color: #89b4fa;">reason</span>: string
+}
+
+<span style="color: #6c7086;">// 匹配规则（LLM 自主判断）：</span>
+<span style="color: #6c7086;">// 1. 语义相似度 — 事件描述、人物、地点是否相关</span>
+<span style="color: #6c7086;">// 2. 指代消解 — "会议"指哪个会议？找最近的</span>
+<span style="color: #6c7086;">// 3. 时间邻近 — 同一时段的任务优先级更高</span>
+<span style="color: #6c7086;">// 4. 显式引用 — "把刚才那个..."指最近一轮对话的task</span></pre>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">System Prompt 片段</div>
+      <div class="mockup-body">
+        <pre style="font-size: 10px; color: #a6adc8; line-height: 1.6;">
+你是一个日程助手。收到用户消息后，
+<span style="color: #f38ba8;">第一步</span>调用 route_message 判断属于哪
+个已有任务，或是否需要新建。
+
+<span style="color: #f9e2af;">候选任务池：</span>
+1. [t-001] 6/5 10:00 项目评审会 @3号会议室
+   最近消息："改到10点吧"
+2. [t-003] 6/4 20:00 健身·练腿
+   最近消息："晚上8点去健身房练腿"
+
+<span style="color: #f9e2af;">用户输入：</span>"把会议改到下午3点"
+
+<span style="color: #f9e2af;">分析：</span>
+- "会议"大概率指 t-001 项目评审会
+- t-003 是健身，不相关
+- confidence 高，因为语义匹配明确
+
+→ route_message(t-001, 0.95, "会议指项目评审会")</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>⚡ 优化：两段式调用 vs 一段式</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:12px;">
+    <tr style="border-bottom: 1px solid #313244;">
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 15%;">方案</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 25%;">流程</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 15%;">延迟</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7;">判断</th>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; font-weight: 600; color: #f9e2af;">两段式</td>
+      <td style="padding: 8px; font-size: 11px;">
+        ① route_message → 拿到 task_id<br>
+        ② 带 task_id 再调 LLM 执行具体操作
+      </td>
+      <td style="padding: 8px; color: #f38ba8;">2× API 调用 ~1.5s</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        逻辑清晰，可独立调试<br>
+        但用户感知慢
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; font-weight: 600; color: #a6e3a1;">一段式 ⭐</td>
+      <td style="padding: 8px; font-size: 11px;">
+        一次调用，LLM 先判断归属再执行操作<br>
+        tools: [route_message, add_task, update_task, ...]<br>
+        LLM 自主决定调用顺序
+      </td>
+      <td style="padding: 8px; color: #a6e3a1;">1× API 调用 ~0.8s</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        快，LLM 自己规划调用顺序<br>
+        DeepSeek function calling 支持多 tool 串联<br>
+        <strong>推荐</strong>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>📋 完整 Tools 清单</h3>
+  <div class="mockup">
+    <div class="mockup-header">发给 DeepSeek 的 tools 数组</div>
+    <div class="mockup-body">
+      <table style="width:100%; border-collapse:collapse; font-size:11px;">
+        <tr style="border-bottom: 1px solid #313244;">
+          <th style="text-align:left; padding: 6px; color: #cba6f7;">Tool</th>
+          <th style="text-align:left; padding: 6px; color: #cba6f7;">触发时机</th>
+          <th style="text-align:left; padding: 6px; color: #cba6f7;">参数</th>
+        </tr>
+        <tr style="border-bottom: 1px solid #313244;">
+          <td style="padding: 6px; color: #f9e2af;">route_message</td>
+          <td style="padding: 6px; font-size: 10px;">每次调用，第一步</td>
+          <td style="padding: 6px; font-size: 10px;">task_id: string|null, confidence: number, reason: string</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #313244;">
+          <td style="padding: 6px; color: #a6e3a1;">add_task</td>
+          <td style="padding: 6px; font-size: 10px;">route 返回 null 或显式新建</td>
+          <td style="padding: 6px; font-size: 10px;">date, time, place, person, event</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #313244;">
+          <td style="padding: 6px; color: #89b4fa;">update_task</td>
+          <td style="padding: 6px; font-size: 10px;">修改已有任务的字段</td>
+          <td style="padding: 6px; font-size: 10px;">task_id, date?, time?, place?, person?, event?</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #313244;">
+          <td style="padding: 6px; color: #f38ba8;">delete_task</td>
+          <td style="padding: 6px; font-size: 10px;">取消/删除任务</td>
+          <td style="padding: 6px; font-size: 10px;">task_id</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px; color: #94e2d5;">query_tasks</td>
+          <td style="padding: 6px; font-size: 10px;">查询某天/某周的任务</td>
+          <td style="padding: 6px; font-size: 10px;">date?, date_range?, person?, keyword?</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🔄 端到端流程</h3>
+  <div class="mockup">
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.5;">
+<span style="color: #89b4fa;">async function</span> <span style="color: #f9e2af;">handleUserMessage</span>(userInput: string) {
+
+  <span style="color: #6c7086;">// 1. 构建候选池</span>
+  <span style="color: #cba6f7;">const</span> candidates = db.getActiveTasksWithSummary();
+  <span style="color: #6c7086;">// [{id, date, time, place, person, event, recentMsgs: "改到10点吧"}]</span>
+
+  <span style="color: #6c7086;">// 2. 构建上下文（只含活跃 task 的消息）</span>
+  <span style="color: #cba6f7;">const</span> messages = buildContext(userInput, candidates);
+
+  <span style="color: #6c7086;">// 3. 一次 LLM 调用，tools 全传进去</span>
+  <span style="color: #cba6f7;">const</span> response = <span style="color: #f9e2af;">await</span> deepseek.chat({
+    model: <span style="color: #a6e3a1;">'deepseek-chat'</span>,
+    messages,
+    tools: [route_message, add_task, update_task, delete_task, query_tasks],
+    tool_choice: <span style="color: #a6e3a1;">'auto'</span>,
+  });
+
+  <span style="color: #6c7086;">// 4. 按 LLM 返回的 tool_calls 依次执行</span>
+  <span style="color: #cba6f7;">for</span> (<span style="color: #cba6f7;">const</span> call <span style="color: #cba6f7;">of</span> response.tool_calls) {
+    <span style="color: #cba6f7;">switch</span> (call.name) {
+      <span style="color: #cba6f7;">case</span> <span style="color: #a6e3a1;">'route_message'</span>:
+        targetTaskId = call.args.task_id;  <span style="color: #6c7086;">// null → 新建</span>
+      <span style="color: #cba6f7;">case</span> <span style="color: #a6e3a1;">'add_task'</span>:
+        targetTaskId = db.createTask(call.args);
+      <span style="color: #cba6f7;">case</span> <span style="color: #a6e3a1;">'update_task'</span>:
+        db.updateTask(call.args.task_id, call.args);
+      <span style="color: #cba6f7;">case</span> <span style="color: #a6e3a1;">'delete_task'</span>:
+        db.deleteTask(call.args.task_id);  <span style="color: #6c7086;">// → 触發折叠</span>
+      <span style="color: #cba6f7;">case</span> <span style="color: #a6e3a1;">'query_tasks'</span>:
+        result = db.queryTasks(call.args);
+    }
+  }
+
+  <span style="color: #6c7086;">// 5. 消息挂载到 task</span>
+  db.saveMessage({ task_id: targetTaskId, role: <span style="color: #a6e3a1;">'user'</span>, content: userInput });
+  db.saveMessage({ task_id: targetTaskId, role: <span style="color: #a6e3a1;">'assistant'</span>, content: responseText });
+
+  <span style="color: #6c7086;">// 6. 如果 task 状态变为 done → 立即触发折叠</span>
+  <span style="color: #cba6f7;">if</span> (task.status === <span style="color: #a6e3a1;">'done'</span>) {
+    compressTaskMessages(targetTaskId);  <span style="color: #6c7086;">// 压缩 → memory</span>
+  }
+}</pre>
+    </div>
+  </div>
+</div>

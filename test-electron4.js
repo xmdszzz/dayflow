@@ -1,0 +1,1 @@
+console.log('electron module type:', typeof require('electron')); console.log('is string:', typeof require('electron') === 'string'); try { const m = require('module'); console.log('builtinModules includes electron:', m.builtinModules.includes('electron')); } catch(e) { console.log('module check err:', e.message); }
