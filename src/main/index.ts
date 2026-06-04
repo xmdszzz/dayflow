@@ -1,5 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
+import { initDatabase } from './db'
+import { registerIpcHandlers } from './ipc-handlers'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -24,6 +26,10 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  initDatabase()
+  registerIpcHandlers()
+  createWindow()
+})
 app.on('window-all-closed', () => {})
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
