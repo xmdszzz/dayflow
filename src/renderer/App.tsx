@@ -1,3 +1,4 @@
+import './commands'
 import TitleBar from './components/layout/TitleBar'
 import MainLayout from './components/layout/MainLayout'
 
