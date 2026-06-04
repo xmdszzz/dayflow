@@ -4,6 +4,8 @@ import { app } from 'electron'
 import { v4 as uuid } from 'uuid'
 import type { Task, TaskInput, ChatMessage, ChatMemory } from '../shared/types'
 
+const nowISO = () => new Date().toISOString()
+
 let db: Database.Database
 
 export function initDatabase(): void {
@@ -72,7 +74,7 @@ function runMigrations(): void {
 }
 
 export function createTask(input: TaskInput): Task {
-  const now = new Date().toISOString()
+  const now = nowISO()
   const task: Task = {
     id: uuid(), date: input.date, time: input.time,
     place: input.place || '', person: input.person || '', event: input.event,
@@ -83,15 +85,18 @@ export function createTask(input: TaskInput): Task {
   return task
 }
 
+const ALLOWED_KEYS = new Set(['date', 'time', 'place', 'person', 'event', 'status'])
+
 export function updateTask(id: string, patch: Partial<Pick<Task, 'date'|'time'|'place'|'person'|'event'|'status'>>): Task | null {
   const sets: string[] = []
   const vals: Record<string, unknown> = { id }
   for (const [k, v] of Object.entries(patch)) {
+    if (!ALLOWED_KEYS.has(k)) continue
     if (v !== undefined) { sets.push(`${k}=@${k}`); vals[k] = v }
   }
   if (sets.length === 0) return getTask(id)
   sets.push('updated_at=@now')
-  vals.now = new Date().toISOString()
+  vals.now = nowISO()
   db.prepare(`UPDATE tasks SET ${sets.join(',')} WHERE id=@id`).run(vals)
   return getTask(id)
 }
@@ -157,15 +162,19 @@ export function getMessagesForDate(date: string): ChatMessage[] {
   `).all(date) as ChatMessage[]
 }
 
-export function getMemories(days: number): ChatMemory[] {
-  return db.prepare('SELECT * FROM chat_memory ORDER BY date DESC LIMIT ?').all(days) as ChatMemory[]
+export function getMemories(limit: number): ChatMemory[] {
+  return db.prepare('SELECT * FROM chat_memory ORDER BY date DESC LIMIT ?').all(limit) as ChatMemory[]
 }
 
 export function saveMemory(memory: Omit<ChatMemory, 'id' | 'created_at'>): void {
-  const id = uuid()
-  const now = new Date().toISOString()
-  db.prepare('INSERT OR REPLACE INTO chat_memory (id,date,summary,task_count,keywords,created_at) VALUES (?,?,?,?,?,?)')
-    .run(id, memory.date, memory.summary, memory.task_count, memory.keywords, now)
+  const existing = db.prepare('SELECT id FROM chat_memory WHERE date=?').get(memory.date) as { id: string } | undefined
+  if (existing) {
+    db.prepare('UPDATE chat_memory SET summary=?, task_count=?, keywords=?, created_at=? WHERE date=?')
+      .run(memory.summary, memory.task_count, memory.keywords, nowISO(), memory.date)
+  } else {
+    db.prepare('INSERT INTO chat_memory (id,date,summary,task_count,keywords,created_at) VALUES (?,?,?,?,?,?)')
+      .run(uuid(), memory.date, memory.summary, memory.task_count, memory.keywords, nowISO())
+  }
 }
 
 export function getConfig(key: string): string {
