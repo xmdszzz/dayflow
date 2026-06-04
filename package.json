@@ -1,6 +1,6 @@
 {
     "name": "dayflow",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "Windows desktop todo list with AI chat",
     "main": "./out/main/index.js",
     "scripts": {
@@ -8,7 +8,7 @@
         "build": "electron-vite build",
         "preview": "electron-vite preview",
         "pack": "electron-builder --dir",
-        "dist": "electron-vite build && electron-builder",
+        "dist": "electron-vite build && electron-builder --publish never",
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage"
