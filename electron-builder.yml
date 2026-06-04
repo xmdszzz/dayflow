@@ -1,0 +1,10 @@
+appId: com.copy2list.app
+productName: copy2list
+directories:
+  output: dist
+win:
+  target: nsis
+  icon: resources/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

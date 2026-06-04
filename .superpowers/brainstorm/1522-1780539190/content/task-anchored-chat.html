@@ -1,0 +1,220 @@
+<h2>Task-Anchored Chat — 每条消息都属于一个 Task Node</h2>
+<p class="subtitle">任务节点 → 消息挂载 → 关闭/过期即折叠</p>
+
+<div class="section">
+  <h3>🔗 核心模型</h3>
+  <div class="mockup">
+    <div class="mockup-header">每个 Task 节点下挂了一条或多条 Chat Message</div>
+    <div class="mockup-body">
+      <div style="font-family: monospace; font-size: 11px; line-height: 1.8;">
+        <span style="color: #cba6f7;">Task Node: "项目评审会" (id: t-001, status: pending)</span>
+        <span style="color: #89b4fa;">├──</span> msg-001 <span style="color: #6c7086;">[user]</span> "明天上午9点跟张总在办公室开项目评审会"
+        <span style="color: #89b4fa;">├──</span> msg-002 <span style="color: #6c7086;">[assistant]</span> "已添加：6月5日 09:00 张总 项目评审会"
+        <span style="color: #89b4fa;">├──</span> msg-003 <span style="color: #6c7086;">[user]</span> "改到10点吧，地点换到3号会议室"
+        <span style="color: #89b4fa;">└──</span> msg-004 <span style="color: #6c7086;">[assistant]</span> "已修改：6月5日 10:00 张总 项目评审会 @ 3号会议室"
+
+        <span style="color: #cba6f7;">Task Node: "喝咖啡" (id: t-002, status: done)</span> <span style="color: #f38ba8;">← 已完成</span>
+        <span style="color: #f38ba8;">├──</span> msg-005 <span style="color: #6c7086;">[user]</span> "下午2点跟小李去星巴克喝咖啡" <span style="color: #f38ba8;">🔥 folded</span>
+        <span style="color: #f38ba8;">└──</span> msg-006 <span style="color: #6c7086;">[assistant]</span> "已添加：..." <span style="color: #f38ba8;">🔥 folded</span>
+
+        <span style="color: #cba6f7;">Task Node: "健身" (id: t-003, status: pending)</span>
+        <span style="color: #89b4fa;">├──</span> msg-007 <span style="color: #6c7086;">[user]</span> "晚上8点去健身房练腿"
+        <span style="color: #89b4fa;">└──</span> msg-008 <span style="color: #6c7086;">[assistant]</span> "已添加：6月4日 20:00 健身"
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>📊 数据模型</h3>
+
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">tasks 表 (扩展)</div>
+      <div class="mockup-body">
+        <pre style="font-size: 10px; color: #a6e3a1; line-height: 1.6;">
+<span style="color: #cba6f7;">CREATE TABLE</span> tasks (
+  id         <span style="color: #f9e2af;">TEXT PRIMARY KEY</span>,
+  date       <span style="color: #f9e2af;">TEXT NOT NULL</span>,
+  time       <span style="color: #f9e2af;">TEXT NOT NULL</span>,
+  place      <span style="color: #f9e2af;">TEXT DEFAULT ''</span>,
+  person     <span style="color: #f9e2af;">TEXT DEFAULT ''</span>,
+  event      <span style="color: #f9e2af;">TEXT NOT NULL</span>,
+  status     <span style="color: #f9e2af;">TEXT DEFAULT 'pending'</span>,
+  <span style="color: #f38ba8;">chat_count</span> <span style="color: #f9e2af;">INTEGER DEFAULT 0</span>,  <span style="color: #6c7086;">-- 挂载的消息数</span>
+  notified   <span style="color: #f9e2af;">INTEGER DEFAULT 0</span>,
+  created_at <span style="color: #f9e2af;">TEXT NOT NULL</span>,
+  updated_at <span style="color: #f9e2af;">TEXT NOT NULL</span>
+);</pre>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">chat_messages 表 (重构)</div>
+      <div class="mockup-body">
+        <pre style="font-size: 10px; color: #a6e3a1; line-height: 1.6;">
+<span style="color: #cba6f7;">CREATE TABLE</span> chat_messages (
+  id         <span style="color: #f9e2af;">TEXT PRIMARY KEY</span>,
+  <span style="color: #f38ba8;">task_id</span>    <span style="color: #f9e2af;">TEXT NOT NULL</span>,     <span style="color: #6c7086;">-- FK → tasks.id</span>
+  role       <span style="color: #f9e2af;">TEXT NOT NULL</span>,
+  content    <span style="color: #f9e2af;">TEXT NOT NULL</span>,
+  tool_calls <span style="color: #f9e2af;">TEXT</span>,
+  created_at <span style="color: #f9e2af;">TEXT NOT NULL</span>,
+
+  <span style="color: #cba6f7;">FOREIGN KEY</span> (task_id) <span style="color: #cba6f7;">REFERENCES</span> tasks(id)
+);</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🔄 消息流转规则</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:12px;">
+    <tr style="border-bottom: 1px solid #313244;">
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 18%;">场景</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 22%;">触发条件</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7;">行为</th>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #a6e3a1; font-weight: 600;">新建任务</td>
+      <td style="padding: 8px; font-size: 11px;">用户输入首条消息，LLM 识别为 add_task</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        ① LLM 调用 add_task → 创建 Task Node<br>
+        ② 这条 user 消息 + assistant 回复 → 挂载到新 task_id<br>
+        ③ task.chat_count = 2
+      </td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #89b4fa; font-weight: 600;">修改/查询已有任务</td>
+      <td style="padding: 8px; font-size: 11px;">用户提到已有任务，LLM 识别为 update/query</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        ① LLM 返回 target_task_id<br>
+        ② 消息挂载到该 task_id<br>
+        ③ task.chat_count += 1
+      </td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #f38ba8; font-weight: 600;">任务完成/取消</td>
+      <td style="padding: 8px; font-size: 11px;">用户手动 ✓ 或 LLM 调用 delete_task</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        ① task.status = 'done' | 'cancelled'<br>
+        ② 该 task 下的 <strong>所有消息立即折叠</strong><br>
+        ③ 折叠摘要存入 chat_memory<br>
+        ④ 下次 buildContext 不再包含这些消息
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; color: #fab387; font-weight: 600;">任务过期</td>
+      <td style="padding: 8px; font-size: 11px;">任务时间 < 当前时间 且 status=pending</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        ① ReminderService 检测到过期 → 通知 Renderer<br>
+        ② 用户可手动确认完成/忽略<br>
+        ③ 确认后 → 同上折叠流程<br>
+        ④ 未确认的过期任务 → 保留但降权显示，消息仍折叠
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>🧠 ContextBuilder 重构</h3>
+  <div class="mockup">
+    <div class="mockup-header">只收集 status=pending + 未过期 task 的消息</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.7;">
+<span style="color: #89b4fa;">function</span> <span style="color: #f9e2af;">buildContext</span>(userMessage, currentTaskId) {
+
+  <span style="color: #6c7086;">// SQL: SELECT cm.* FROM chat_messages cm</span>
+  <span style="color: #6c7086;">//      JOIN tasks t ON cm.task_id = t.id</span>
+  <span style="color: #6c7086;">//      WHERE t.status = 'pending'</span>
+  <span style="color: #6c7086;">//        AND (t.date > today OR (t.date = today AND t.time > now))</span>
+  <span style="color: #6c7086;">//      ORDER BY cm.created_at DESC</span>
+  <span style="color: #6c7086;">//      LIMIT 20</span>
+
+  <span style="color: #cba6f7;">const</span> activeMessages = db.getActiveTaskMessages(<span style="color: #a6e3a1;">20</span>);
+  <span style="color: #6c7086;">// ↑ JOIN 自动过滤掉已完成/已过期 task 的所有消息</span>
+
+  <span style="color: #6c7086;">// 当前正在操作的 task 的消息（如果不在 active 窗口里，单独注入）</span>
+  <span style="color: #cba6f7;">const</span> currentTaskMsgs = currentTaskId
+    ? db.getMessagesByTask(currentTaskId)
+    : [];
+
+  <span style="color: #6c7086;">// 折叠摘要：已完成/过期 task 的压缩信息</span>
+  <span style="color: #cba6f7;">const</span> foldedSummary = <span style="color: #a6e3a1;">`已完成任务: 项目评审会(2条消息), 喝咖啡(2条消息)`</span>;
+
+  <span style="color: #cba6f7;">return</span> [
+    { role: <span style="color: #a6e3a1;">'system'</span>, content: systemPrompt },
+    { role: <span style="color: #a6e3a1;">'system'</span>, content: foldedSummary },   <span style="color: #6c7086;">// 极简</span>
+    ...activeMessages,                                 <span style="color: #6c7086;">// 只含活跃 task 的消息</span>
+    ...currentTaskMsgs,                                <span style="color: #6c7086;">// 当前 task 完整上下文</span>
+    { role: <span style="color: #a6e3a1;">'user'</span>,   content: userMessage },
+  ];
+}</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>💡 聊天 UI 表现</h3>
+  <div class="mockup">
+    <div class="mockup-header">Chat 面板中的消息分组展示</div>
+    <div class="mockup-body">
+      <div style="font-size: 11px; line-height: 1.6;">
+
+        <div style="background: #1e1e2e; padding: 8px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #a6e3a1;">
+          <div style="color: #a6e3a1; font-size: 10px; margin-bottom: 4px;">📌 项目评审会 · 6月5日 10:00</div>
+          <div style="color: #f9e2af; margin-bottom: 2px;">👤 明天上午9点跟张总在办公室开项目评审会</div>
+          <div style="color: #89b4fa; margin-bottom: 2px;">🤖 已添加：6月5日 09:00 张总 项目评审会 @ 办公室</div>
+          <div style="color: #f9e2af; margin-bottom: 2px;">👤 改到10点吧，地点换3号会议室</div>
+          <div style="color: #89b4fa;">🤖 已修改：6月5日 10:00 张总 项目评审会 @ 3号会议室</div>
+        </div>
+
+        <div style="background: #1e1e2e; padding: 8px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #a6e3a1;">
+          <div style="color: #a6e3a1; font-size: 10px; margin-bottom: 4px;">📌 健身 · 今天 20:00</div>
+          <div style="color: #f9e2af; margin-bottom: 2px;">👤 晚上8点去健身房练腿</div>
+          <div style="color: #89b4fa;">🤖 已添加：6月4日 20:00 健身 · 练腿</div>
+        </div>
+
+        <details style="color: #6c7086; font-size: 10px; background: #181825; padding: 6px 8px; border-radius: 4px;">
+          <summary style="cursor: pointer;">📦 已完成/过期 · 3个任务 · 8条消息已折叠</summary>
+          <div style="margin-top: 4px; padding-left: 8px; color: #585b70;">
+            喝咖啡 (6/3) · 2条<br>
+            周报提交 (6/2) · 4条<br>
+            牙医预约 (6/1) · 2条
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>⚡ 折叠触发链路</h3>
+  <div style="display: flex; gap: 8px; align-items: center; font-size: 11px; flex-wrap: wrap;">
+    <div style="background: #313244; padding: 8px 12px; border-radius: 6px; text-align: center;">
+      <span style="color: #f9e2af;">用户点 ✓</span><br>
+      <span style="font-size: 10px; color: #6c7086;">或右键→完成</span>
+    </div>
+    <span style="color: #cba6f7;">→</span>
+    <div style="background: #313244; padding: 8px 12px; border-radius: 6px; text-align: center;">
+      <span style="color: #f9e2af;">task.status = done</span><br>
+      <span style="font-size: 10px; color: #6c7086;">updated_at = now</span>
+    </div>
+    <span style="color: #cba6f7;">→</span>
+    <div style="background: #313244; padding: 8px 12px; border-radius: 6px; text-align: center;">
+      <span style="color: #f9e2af;">关联消息折叠</span><br>
+      <span style="font-size: 10px; color: #6c7086;">UI 中 collapse</span>
+    </div>
+    <span style="color: #cba6f7;">→</span>
+    <div style="background: #313244; padding: 8px 12px; border-radius: 6px; text-align: center;">
+      <span style="color: #f9e2af;">压缩归档</span><br>
+      <span style="font-size: 10px; color: #6c7086;">存 chat_memory</span>
+    </div>
+    <span style="color: #cba6f7;">→</span>
+    <div style="background: #a6e3a1; padding: 8px 12px; border-radius: 6px; text-align: center; color: #1e1e2e;">
+      <span style="font-weight: 600;">上下文释放</span><br>
+      <span style="font-size: 10px;">不再进入 LLM 请求</span>
+    </div>
+  </div>
+</div>

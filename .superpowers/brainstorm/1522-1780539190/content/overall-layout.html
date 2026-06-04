@@ -1,0 +1,95 @@
+<h2>copy2list — Initial Concept</h2>
+<p class="subtitle">A Windows desktop todo app with two core panels: Calendar + Chat</p>
+
+<div class="section">
+  <h3>Overall Layout Concept</h3>
+  <div class="mockup">
+    <div class="mockup-header">App Window (~1200×800)</div>
+    <div class="mockup-body">
+      <div style="display: flex; height: 500px; gap: 2px;">
+        <!-- Calendar Panel (Left) -->
+        <div style="flex: 3; background: #1e1e2e; padding: 12px; display: flex; flex-direction: column; border-radius: 6px 0 0 6px;">
+          <div style="color: #cdd6f4; font-size: 14px; font-weight: 600; margin-bottom: 10px;">📅 Calendar Panel</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="color: #a6adc8; font-size: 12px;">◀</span>
+            <span style="color: #cdd6f4; font-weight: 600;">June 2026</span>
+            <span style="color: #a6adc8; font-size: 12px;">▶</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; font-size: 10px; color: #6c7086; text-align: center; margin-bottom: 4px;">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; font-size: 11px; text-align: center; flex: 1;">
+            <span style="color: #6c7086;">26</span><span style="color: #6c7086;">27</span><span style="color: #6c7086;">28</span><span style="color: #6c7086;">29</span><span style="color: #6c7086;">30</span><span style="color: #6c7086;">31</span><span style="color: #a6adc8;">1</span>
+            <span style="color: #a6adc8;">2</span><span style="color: #a6adc8;">3</span><span style="background: #cba6f7; color: #1e1e2e; border-radius: 50%; padding: 2px;">4</span><span style="color: #a6adc8;">5</span><span style="color: #a6adc8;">6</span><span style="color: #a6adc8;">7</span><span style="color: #a6adc8;">8</span>
+          </div>
+          <div style="border-top: 1px solid #313244; margin-top: 10px; padding-top: 8px;">
+            <div style="color: #cdd6f4; font-size: 12px; font-weight: 600;">📋 June 4 (Today)</div>
+            <div style="margin-top: 6px; font-size: 11px; color: #a6adc8;">
+              <div style="padding: 4px 6px; background: #313244; border-radius: 4px; margin-bottom: 3px; display: flex; gap: 8px;">
+                <span>🔴</span><span>09:00</span><span>Office</span><span>Zhang</span><span>Project Review</span>
+              </div>
+              <div style="padding: 4px 6px; background: #313244; border-radius: 4px; margin-bottom: 3px; display: flex; gap: 8px;">
+                <span>🔵</span><span>14:00</span><span>Cafe</span><span>Li</span><span>Coffee Chat</span>
+              </div>
+              <div style="padding: 4px 6px; background: #313244; border-radius: 4px; display: flex; gap: 8px;">
+                <span>🟢</span><span>18:00</span><span>Gym</span><span>—</span><span>Workout</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Chat Panel (Right) -->
+        <div style="flex: 2; background: #181825; padding: 12px; display: flex; flex-direction: column; border-radius: 0 6px 6px 0;">
+          <div style="color: #cdd6f4; font-size: 14px; font-weight: 600; margin-bottom: 10px;">💬 Chat Panel</div>
+          <div style="flex: 1; font-size: 11px; color: #a6adc8; overflow: hidden;">
+            <div style="background: #313244; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
+              <span style="color: #89b4fa;">🤖 </span>I'll parse your input into structured todo items. Just type naturally!
+            </div>
+            <div style="background: #45475a; padding: 8px; border-radius: 6px; margin-bottom: 6px; margin-left: 20px;">
+              <span style="color: #f9e2af;">👤 </span>明天上午9点跟张总在办公室开项目评审会，下午2点跟小李在星巴克喝咖啡
+            </div>
+            <div style="background: #313244; padding: 8px; border-radius: 6px;">
+              <span style="color: #89b4fa;">🤖 </span>Parsed 2 tasks:<br>
+              <code style="font-size: 10px; color: #a6e3a1;">{"time":"09:00","place":"Office","person":"张总","event":"项目评审会"}
+              {"time":"14:00","place":"星巴克","person":"小李","event":"喝咖啡"}</code>
+            </div>
+          </div>
+          <div style="display: flex; gap: 4px; margin-top: 8px;">
+            <input class="mock-input" placeholder="输入你的日程安排..." style="flex: 1; background: #313244; border: none; padding: 8px; border-radius: 4px; color: #cdd6f4;">
+            <button class="mock-button" style="background: #cba6f7; color: #1e1e2e;">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Task Item Format</h3>
+  <table style="width:100%; border-collapse: collapse; font-size: 13px;">
+    <tr style="border-bottom: 1px solid #313244;">
+      <th style="text-align:left; padding: 6px; color: #cba6f7;">Field</th>
+      <th style="text-align:left; padding: 6px; color: #cba6f7;">Example</th>
+      <th style="text-align:left; padding: 6px; color: #cba6f7;">Description</th>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px;">🕐 时间</td>
+      <td style="padding: 6px;"><code>2026-06-04 09:00</code></td>
+      <td style="padding: 6px; color: #a6adc8;">Date + time of the event</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px;">📍 地点</td>
+      <td style="padding: 6px;"><code>Office / 星巴克</code></td>
+      <td style="padding: 6px; color: #a6adc8;">Where the event takes place</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px;">👤 人物</td>
+      <td style="padding: 6px;"><code>张总 / 小李</code></td>
+      <td style="padding: 6px; color: #a6adc8;">Person(s) involved</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px;">📝 事件</td>
+      <td style="padding: 6px;"><code>项目评审会</code></td>
+      <td style="padding: 6px; color: #a6adc8;">What the event is about</td>
+    </tr>
+  </table>
+</div>

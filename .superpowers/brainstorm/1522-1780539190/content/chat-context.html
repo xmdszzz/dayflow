@@ -1,0 +1,175 @@
+<h2>Chat Context — 滑动窗口 + 记忆压缩机制</h2>
+<p class="subtitle">消息生命周期 · 滑动窗口 · 每日压缩 · 长期记忆</p>
+
+<div class="section">
+  <h3>🔄 消息生命周期</h3>
+  <div style="display: flex; gap: 12px; font-size: 12px;">
+    <div style="flex:1; background: #a6e3a1; color: #1e1e2e; padding: 12px; border-radius: 8px; text-align: center;">
+      <strong>① Active</strong><br>
+      <span style="font-size: 10px;">滑动窗口内 · 完整保留</span><br>
+      <span style="font-size: 10px;">最近 20 轮对话</span>
+    </div>
+    <div style="color: #a6adc8; font-size: 20px; align-self: center;">→</div>
+    <div style="flex:1; background: #f9e2af; color: #1e1e2e; padding: 12px; border-radius: 8px; text-align: center;">
+      <strong>② Stale</strong><br>
+      <span style="font-size: 10px;">超出窗口 · 折叠显示</span><br>
+      <span style="font-size: 10px;">"6月3日对话 · 添加了3个任务"</span>
+    </div>
+    <div style="color: #a6adc8; font-size: 20px; align-self: center;">→</div>
+    <div style="flex:1; background: #89b4fa; color: #1e1e2e; padding: 12px; border-radius: 8px; text-align: center;">
+      <strong>③ Archived</strong><br>
+      <span style="font-size: 10px;">每日 0:00 自动压缩</span><br>
+      <span style="font-size: 10px;">摘要存入长期记忆表</span>
+    </div>
+    <div style="color: #a6adc8; font-size: 20px; align-self: center;">→</div>
+    <div style="flex:1; background: #cba6f7; color: #1e1e2e; padding: 12px; border-radius: 8px; text-align: center;">
+      <strong>④ Memory</strong><br>
+      <span style="font-size: 10px;">按日期检索</span><br>
+      <span style="font-size: 10px;">注入系统 prompt 提供上下文</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>📐 核心规则</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:12px;">
+    <tr style="border-bottom: 1px solid #313244;">
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 20%;">机制</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 30%;">规则</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7;">说明</th>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #f38ba8; font-weight: 600;">滑动窗口</td>
+      <td style="padding: 8px;">保留最近 20 轮对话<br>超出部分折叠为摘要行</td>
+      <td style="padding: 8px; color: #a6adc8;">20 轮足够覆盖一天的高频使用<br>发送第 21 条时自动折叠最早的一轮</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #f9e2af; font-weight: 600;">过期任务清理</td>
+      <td style="padding: 8px;">任务时间 < 当前时间 → 自动折叠<br>任务状态 = done/cancelled → 3天后折叠</td>
+      <td style="padding: 8px; color: #a6adc8;">聊天记录中引用的已发生任务<br>显示为灰色折叠条，不占上下文</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #89b4fa; font-weight: 600;">每日压缩</td>
+      <td style="padding: 8px;">每天 0:00 或应用启动时触发<br>压缩昨天的 Active+Stale → 摘要</td>
+      <td style="padding: 8px; color: #a6adc8;">LLM 生成摘要：日期、添加的任务数、<br>修改/删除、关键事件关键词</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; color: #a6e3a1; font-weight: 600;">长期记忆</td>
+      <td style="padding: 8px;">摘要存入 memory 表<br>用户新消息时注入相关记忆</td>
+      <td style="padding: 8px; color: #a6adc8;">"你上周三跟张总开过评审会"<br>"这个月你已经加了15个会议"</td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>📋 SQLite 新增表</h3>
+  <div class="mockup">
+    <div class="mockup-header">chat_messages & chat_memory</div>
+    <div class="mockup-body">
+      <pre style="font-size: 11px; color: #a6e3a1; line-height: 1.7;">
+<span style="color: #6c7086;">-- 聊天消息表（持久化存储，支持折叠/归档）</span>
+<span style="color: #cba6f7;">CREATE TABLE</span> chat_messages (
+  id         <span style="color: #f9e2af;">TEXT PRIMARY KEY</span>,       <span style="color: #6c7086;">-- UUID</span>
+  role       <span style="color: #f9e2af;">TEXT NOT NULL</span>,          <span style="color: #6c7086;">-- 'user' | 'assistant' | 'system'</span>
+  content    <span style="color: #f9e2af;">TEXT NOT NULL</span>,          <span style="color: #6c7086;">-- 原始消息内容</span>
+  tool_calls <span style="color: #f9e2af;">TEXT</span>,                 <span style="color: #6c7086;">-- JSON: LLM 返回的 function_call</span>
+  status     <span style="color: #f9e2af;">TEXT NOT NULL DEFAULT 'active'</span>,  <span style="color: #6c7086;">-- active|stale|archived</span>
+  date_tag   <span style="color: #f9e2af;">TEXT NOT NULL</span>,          <span style="color: #6c7086;">-- '2026-06-04' 所属日期</span>
+  created_at <span style="color: #f9e2af;">TEXT NOT NULL</span>
+);
+
+<span style="color: #6c7086;">-- 长期记忆表（每日压缩摘要）</span>
+<span style="color: #cba6f7;">CREATE TABLE</span> chat_memory (
+  id         <span style="color: #f9e2af;">TEXT PRIMARY KEY</span>,       <span style="color: #6c7086;">-- UUID</span>
+  date       <span style="color: #f9e2af;">TEXT NOT NULL UNIQUE</span>,  <span style="color: #6c7086;">-- '2026-06-04'</span>
+  summary    <span style="color: #f9e2af;">TEXT NOT NULL</span>,          <span style="color: #6c7086;">-- LLM 生成的摘要</span>
+  task_count <span style="color: #f9e2af;">INTEGER NOT NULL</span>,      <span style="color: #6c7086;">-- 当天操作的任务数</span>
+  keywords   <span style="color: #f9e2af;">TEXT</span>,                 <span style="color: #6c7086;">-- JSON: ["评审","预算","健身"]</span>
+  created_at <span style="color: #f9e2af;">TEXT NOT NULL</span>
+);</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🔄 运行时流程</h3>
+  <div class="mockup">
+    <div class="mockup-header">Context Builder — 每次 sendMessage() 触发</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.8;">
+<span style="color: #89b4fa;">function</span> <span style="color: #f9e2af;">buildContext</span>(userMessage) {
+
+  <span style="color: #6c7086;">// 1. 从 SQLite 取最近 20 条 status=active 的消息 (滑动窗口)</span>
+  <span style="color: #cba6f7;">const</span> activeMessages = db.getActiveMessages(<span style="color: #a6e3a1;">20</span>);
+
+  <span style="color: #6c7086;">// 2. 取过期消息的折叠摘要行 (status=stale, 只取摘要不取全文)</span>
+  <span style="color: #cba6f7;">const</span> staleSummary = db.getStaleSummary();  <span style="color: #6c7086;">// "更早的对话中，你添加了5个任务..."</span>
+
+  <span style="color: #6c7086;">// 3. 取最近 7 天的长期记忆摘要 (按日期近→远)</span>
+  <span style="color: #cba6f7;">const</span> recentMemories = db.getMemories(<span style="color: #a6e3a1;">7</span>);
+
+  <span style="color: #6c7086;">// 4. 取未发生的未来任务 (提供时间上下文)</span>
+  <span style="color: #cba6f7;">const</span> upcomingTasks = db.getUpcomingTasks();
+
+  <span style="color: #6c7086;">// 5. 组装 messages 数组发给 DeepSeek</span>
+  <span style="color: #cba6f7;">return</span> [
+    { role: <span style="color: #a6e3a1;">'system'</span>, content: systemPrompt + recentMemories },
+    { role: <span style="color: #a6e3a1;">'system'</span>, content: <span style="color: #a6e3a1;">'未来任务：'</span> + upcomingTasks },
+    ...staleSummary,                     <span style="color: #6c7086;">// 折叠的摘要作为 system</span>
+    ...activeMessages,                   <span style="color: #6c7086;">// 最近 20 条原样保留</span>
+    { role: <span style="color: #a6e3a1;">'user'</span>,   content: userMessage },
+  ];
+}</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>⏰ 每日压缩触发时机</h3>
+  <div style="display: flex; gap: 12px; font-size: 12px;">
+    <div style="flex:1; background: #313244; padding: 12px; border-radius: 8px;">
+      <span style="color: #f9e2af; font-weight: 600;">触发点 1</span><br>
+      <span style="color: #a6adc8;">应用启动时</span><br>
+      <span style="font-size: 10px; color: #6c7086;">检查昨天是否有未压缩的 active/stale 消息<br>有则调用 LLM 生成摘要 → 存入 memory → 原消息标记 archived</span>
+    </div>
+    <div style="flex:1; background: #313244; padding: 12px; border-radius: 8px;">
+      <span style="color: #f9e2af; font-weight: 600;">触发点 2</span><br>
+      <span style="color: #a6adc8;">定时器 (每小时检查)</span><br>
+      <span style="font-size: 10px; color: #6c7086;">Main Process 的 ReminderService 顺带检查<br>如果跨天了 + 有未压缩消息 → 触发压缩</span>
+    </div>
+    <div style="flex:1; background: #313244; padding: 12px; border-radius: 8px;">
+      <span style="color: #f9e2af; font-weight: 600;">触发点 3</span><br>
+      <span style="color: #a6adc8;">滑动窗口溢出时</span><br>
+      <span style="font-size: 10px; color: #6c7086;">第21条消息写入时<br>最早的一轮对话被标记为 stale<br>（stale 是中间态，等压缩时统一归档）</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🗜️ 压缩 Prompt</h3>
+  <div class="mockup">
+    <div class="mockup-header">调用 DeepSeek 做摘要（不费什么 token）</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.6;">
+<span style="color: #cba6f7;">SYSTEM:</span>
+你是日程记忆压缩器。将以下聊天记录压缩为一条 JSON 摘要。
+提取关键信息：用户做了哪些日程操作、讨论了什么偏好、有无重要备注。
+
+<span style="color: #cba6f7;">USER:</span>
+日期: 2026-06-03
+聊天记录:
+[User] 明天上午9点跟张总开会
+[Assistant] 已添加: 6月4日 09:00 张总 开会
+[User] 下周要去上海出差三天
+[Assistant] ...
+
+<span style="color: #cba6f7;">ASSISTANT (JSON):</span>
+{
+  "summary": "6月3日你添加了2个任务，主要是会议和出差安排。偏好上午开会。",
+  "keywords": ["会议", "出差", "上海", "张总"],
+  "task_count": 2,
+  "preferences": ["偏好上午安排会议"]
+}</pre>
+    </div>
+  </div>
+</div>

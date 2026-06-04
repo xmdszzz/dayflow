@@ -1,0 +1,248 @@
+<h2>@ 引用机制 + 提醒系统</h2>
+<p class="subtitle">显式 @ 指向 · 语义匹配兜底 · 模糊则反确认 · Windows 原生提醒</p>
+
+<div class="section">
+  <h3>🔍 @ 引用 — 三级匹配策略</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:12px;">
+    <tr style="border-bottom: 1px solid #313244;">
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 5%;">优先级</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 15%;">方式</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 30%;">用户输入</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7;">处理逻辑</th>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; text-align: center; color: #a6e3a1; font-weight: 700; font-size: 16px;">1</td>
+      <td style="padding: 8px; color: #a6e3a1; font-weight: 600;">@ 显式指定</td>
+      <td style="padding: 8px; font-size: 11px;"><code>@项目评审会 改到下午3点</code><br><code>@健身 取消</code></td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        输入框实时检测 <code>@</code> → 弹出自动补全下拉<br>
+        候选列表 = 所有 status=pending 的任务<br>
+        选中后 → task_id 明确传入 LLM<br>
+        <span style="color: #a6e3a1;">确定性 100%，无需语义判断</span>
+      </td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; text-align: center; color: #f9e2af; font-weight: 700; font-size: 16px;">2</td>
+      <td style="padding: 8px; color: #f9e2af; font-weight: 600;">语义匹配</td>
+      <td style="padding: 8px; font-size: 11px;">"把会议改到下午3点"<br>"取消明天的饭局"</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        LLM 收到所有 pending tasks 列表<br>
+        在 system prompt 中注入候选任务<br>
+        由 LLM 通过语义判断匹配到具体 task_id<br>
+        要求 LLM 返回 <code>confidence: high|low</code>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; text-align: center; color: #f38ba8; font-weight: 700; font-size: 16px;">3</td>
+      <td style="padding: 8px; color: #f38ba8; font-weight: 600;">反确认</td>
+      <td style="padding: 8px; font-size: 11px;">"改到下午3点"<br>(用户省略了上下文)</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        LLM 返回 confidence=low 或多个候选<br>
+        → <span style="color: #f38ba8;">不执行操作</span><br>
+        → 回复用户列出候选："你想修改哪个？<br>
+        &nbsp;&nbsp;① 项目评审会 (明天 9:00)<br>
+        &nbsp;&nbsp;② 预算讨论 (明天 14:00)"<br>
+        用户点击或回复序号确认
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>💬 @ 自动补全 UI</h3>
+  <div class="mockup">
+    <div class="mockup-header">Chat输入框 — 输入 @ 触发</div>
+    <div class="mockup-body">
+      <div style="background: #313244; padding: 10px; border-radius: 6px; font-size: 12px;">
+        <span style="color: #cdd6f4;">@项</span><span style="color: #6c7086; animation: blink 1s infinite;">|</span>
+        <div style="background: #45475a; border-radius: 4px; margin-top: 6px; overflow: hidden;">
+          <div style="padding: 5px 10px; background: #585b70; display: flex; align-items: center; gap: 8px;">
+            <span style="color: #a6e3a1;">📌</span>
+            <span style="color: #cdd6f4; font-weight: 600;">项目评审会</span>
+            <span style="color: #a6adc8; font-size: 10px;">明天 10:00 · 3号会议室 · 张总</span>
+          </div>
+          <div style="padding: 5px 10px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: #a6e3a1;">📌</span>
+            <span style="color: #cdd6f4; font-weight: 600;">项目复盘</span>
+            <span style="color: #a6adc8; font-size: 10px;">周五 16:00 · 办公室 · 团队</span>
+          </div>
+          <div style="padding: 5px 10px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: #a6e3a1;">📌</span>
+            <span style="color: #cdd6f4; font-weight: 600;">项目上线</span>
+            <span style="color: #a6adc8; font-size: 10px;">下周一 08:00</span>
+          </div>
+        </div>
+        <div style="color: #6c7086; font-size: 9px; margin-top: 4px; text-align: right;">↑↓ 选择 · Enter 确认 · Esc 关闭</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🔄 完整交互流程</h3>
+  <div class="mockup">
+    <div class="mockup-header">用户输入 → 匹配 → LLM 调用 → 执行</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.8;">
+用户输入 "把会议改到下午3点"
+         │
+         ▼
+  ┌─────────────────────────────┐
+  │  输入预处理 (Renderer)       │
+  │  ① 检查是否有 @ 前缀        │  → 没有
+  │  ② 提取纯文本               │  → "把会议改到下午3点"
+  └─────────────┬───────────────┘
+                │
+                ▼
+  ┌─────────────────────────────┐
+  │  ContextBuilder (Main)      │
+  │  注入所有 pending tasks:    │
+  │  [t-001] 项目评审会 6/5 10:00│
+  │  [t-003] 健身 6/4 20:00     │
+  │  [t-004] 预算讨论 6/5 14:00 │
+  └─────────────┬───────────────┘
+                │
+                ▼
+  ┌─────────────────────────────┐
+  │  DeepSeek API               │
+  │  function_call:             │
+  │    name: "update_task"      │
+  │    args: {                  │
+  │      task_id: "t-001",      │ ← 语义匹配到项目评审会
+  │      time: "15:00",         │
+  │      confidence: "high"     │ ← confidence ≥ high → 执行
+  │    }                        │
+  └─────────────┬───────────────┘
+                │
+    ┌───────────┴───────────┐
+    │ confidence?           │
+    ├─────── high ──────────┤  → 直接执行，回复确认
+    ├─────── low ───────────┤  → 不执行，回复候选列表让用户选
+    └───────────────────────┘</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🔔 提醒系统</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:12px;">
+    <tr style="border-bottom: 1px solid #313244;">
+      <th style="text-align:left; padding: 8px; color: #cba6f7; width: 15%;">模块</th>
+      <th style="text-align:left; padding: 8px; color: #cba6f7;">设计</th>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #f9e2af; font-weight: 600;">轮询引擎</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        Main Process 中 <code>setInterval(30秒)</code><br>
+        查询: <code>SELECT * FROM tasks WHERE status='pending' AND notified=0 AND datetime(date||' '||time) <= datetime('now', '+10 minutes')</code><br>
+        一次查出所有 10 分钟内到期的未提醒任务
+      </td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #f9e2af; font-weight: 600;">通知触发</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        <code>new Notification({ title: '⏰ 10分钟后', body: '项目评审会 @ 3号会议室 · 张总', silent: false })</code><br>
+        点击通知 → 聚焦应用窗口 + 跳转到 Today 视图 + 高亮该任务<br>
+        notified 字段设为 1（不重复提醒）
+      </td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #f9e2af; font-weight: 600;">提醒时间</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        默认 10 分钟前<br>
+        后续可在 Settings 中自定义: 5/10/15/30 分钟<br>
+        存入 config 表: <code>reminder_minutes = 10</code>
+      </td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 8px; color: #f9e2af; font-weight: 600;">系统托盘</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        应用关闭 → 最小化到托盘<br>
+        托盘图标保持提醒服务运行<br>
+        右键菜单: 显示窗口 / 今日任务(N) / 退出<br>
+        左键双击 → 显示窗口
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; color: #f9e2af; font-weight: 600;">开机启动</td>
+      <td style="padding: 8px; font-size: 11px; color: #a6adc8;">
+        可选: electron 的 <code>app.setLoginItemSettings({ openAtLogin: true })</code><br>
+        Settings 中开关控制
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>🖥️ 通知样式 & 托盘</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Windows 通知</div>
+      <div class="mockup-body">
+        <div style="background: #1e1e2e; border: 1px solid #45475a; border-radius: 8px; padding: 12px; width: 260px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span style="font-size: 20px;">🔔</span>
+            <div>
+              <div style="color: #cdd6f4; font-size: 12px; font-weight: 600;">copy2list</div>
+              <div style="color: #6c7086; font-size: 10px;">刚刚</div>
+            </div>
+          </div>
+          <div style="color: #cdd6f4; font-size: 13px; font-weight: 600; margin-bottom: 4px;">⏰ 10分钟后 · 项目评审会</div>
+          <div style="color: #a6adc8; font-size: 11px;">
+            📍 3号会议室 &nbsp; 👤 张总<br>
+            🕐 2026年6月5日 10:00
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">系统托盘菜单</div>
+      <div class="mockup-body">
+        <div style="background: #2d2d2d; border: 1px solid #555; border-radius: 6px; padding: 4px; width: 180px; font-size: 11px; color: #e0e0e0; line-height: 2;">
+          <div style="padding: 2px 8px;">📋 显示主窗口</div>
+          <div style="border-top: 1px solid #555; margin: 2px 0;"></div>
+          <div style="padding: 2px 8px; color: #a6adc8;">📅 今日 3个任务</div>
+          <div style="padding: 2px 8px; color: #a6adc8; font-size: 10px; padding-left: 20px;">09:00 · 项目评审会</div>
+          <div style="padding: 2px 8px; color: #a6adc8; font-size: 10px; padding-left: 20px;">14:00 · 预算讨论</div>
+          <div style="padding: 2px 8px; color: #a6adc8; font-size: 10px; padding-left: 20px;">20:00 · 健身</div>
+          <div style="border-top: 1px solid #555; margin: 2px 0;"></div>
+          <div style="padding: 2px 8px;">⚙️ 设置</div>
+          <div style="padding: 2px 8px; color: #f38ba8;">退出</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>📋 最终 System Prompt 结构</h3>
+  <div class="mockup">
+    <div class="mockup-header">每次 LLM 请求的完整 messages 数组</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.6;">
+[
+  { role: "system", content: `
+    你是日程管理助手。使用 function calling 操作用户的日程。
+
+    <span style="color: #cba6f7;">规则：</span>
+    1. 用户可以用 @任务名 显式指定任务，此时 task_id 已经由前端传入
+    2. 如无 @，根据语义匹配候选任务列表中的任务
+    3. 如果 confidence=low，必须返回 confirm_required=true，不要执行
+    4. 日期时间始终解析为具体 YYYY-MM-DD HH:mm
+    5. 相对时间（"明天""下周"）基于当前日期 {today} 计算
+  `},
+  { role: "system", content: `
+    <span style="color: #cba6f7;">当前活跃任务：</span>
+    [t-001] 项目评审会 | 2026-06-05 10:00 | 3号会议室 | 张总
+    [t-003] 健身 | 2026-06-04 20:00 | 健身房 | —
+    [t-004] 预算讨论 | 2026-06-05 14:00 | 会议室 | 王经理
+  `},
+  { role: "system", content: `
+    <span style="color: #6c7086;">已折叠: 喝咖啡(6/3·2条), 周报(6/2·4条), 牙医(6/1·2条)</span>
+  `},
+  ...activeMessages,    <span style="color: #6c7086;">// JOIN过滤后的活跃消息，最多20条</span>
+  { role: "user", content: "把会议改到下午3点" }
+]</pre>
+    </div>
+  </div>
+</div>

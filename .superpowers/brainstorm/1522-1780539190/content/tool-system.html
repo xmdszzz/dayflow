@@ -1,0 +1,197 @@
+<h2>Tool/Skill 系统 — LLM 与 Electron 的桥梁</h2>
+<p class="subtitle">Tool Registry · 双向映射 · 安全沙箱 · 可扩展</p>
+
+<div class="section">
+  <h3>🏗️ 架构定位</h3>
+  <div class="mockup">
+    <div class="mockup-header">Tool Registry 是 LLM 与现实世界的唯一桥梁</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.8;">
+
+  DeepSeek API                          Electron Main Process
+  ┌──────────────┐                    ┌──────────────────────────────┐
+  │              │   function_call    │  <span style="color: #cba6f7;">Tool Registry</span>              │
+  │   LLM        │ ───────────────→  │                              │
+  │   decides    │                    │  toolName → handler          │
+  │   which tool │                    │  ┌────────────────────────┐  │
+  │   to call    │  ←───────────────  │  │ add_task    → SQLite   │  │
+  │              │   tool_result      │  │ update_task → SQLite   │  │
+  └──────────────┘                    │  │ delete_task → SQLite   │  │
+                                      │  │ query_tasks → SQLite   │  │
+                                      │  │ get_now     → Date()   │  │
+                                      │  │ compress    → LLM+DB   │  │
+                                      │  │ confirm     → ask user │  │
+                                      │  └────────────────────────┘  │
+                                      └──────────────────────────────┘</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🔧 全部 Tool 定义</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:11px;">
+    <tr style="border-bottom: 1px solid #313244;">
+      <th style="text-align:left; padding: 6px; color: #cba6f7; width: 14%;">Tool Name</th>
+      <th style="text-align:left; padding: 6px; color: #cba6f7; width: 8%;">分类</th>
+      <th style="text-align:left; padding: 6px; color: #cba6f7; width: 20%;">Parameters</th>
+      <th style="text-align:left; padding: 6px; color: #cba6f7; width: 18%;">Handler 做的事</th>
+      <th style="text-align:left; padding: 6px; color: #cba6f7;">Returns</th>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px; color: #a6e3a1; font-weight: 600;">add_task</td>
+      <td style="padding: 6px; color: #89b4fa;">数据</td>
+      <td style="padding: 6px; font-size: 10px;">date, time, place, person, event</td>
+      <td style="padding: 6px; font-size: 10px; color: #a6adc8;">生成 UUID → INSERT INTO tasks<br>创建关联 chat_messages 记录</td>
+      <td style="padding: 6px; font-size: 10px;">{ task_id, task_summary }</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px; color: #f9e2af; font-weight: 600;">update_task</td>
+      <td style="padding: 6px; color: #89b4fa;">数据</td>
+      <td style="padding: 6px; font-size: 10px;">task_id, + 任意可选字段</td>
+      <td style="padding: 6px; font-size: 10px; color: #a6adc8;">UPDATE tasks SET ... WHERE id=task_id<br>检查 task 是否存在且 status=pending</td>
+      <td style="padding: 6px; font-size: 10px;">{ task_id, changes, new_summary }</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px; color: #f38ba8; font-weight: 600;">delete_task</td>
+      <td style="padding: 6px; color: #89b4fa;">数据</td>
+      <td style="padding: 6px; font-size: 10px;">task_id</td>
+      <td style="padding: 6px; font-size: 10px; color: #a6adc8;">UPDATE tasks SET status='cancelled'<br>触发该 task 的消息折叠</td>
+      <td style="padding: 6px; font-size: 10px;">{ task_id, deleted_summary }</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px; color: #89b4fa; font-weight: 600;">query_tasks</td>
+      <td style="padding: 6px; color: #89b4fa;">数据</td>
+      <td style="padding: 6px; font-size: 10px;">date (可选), date_range (可选), status (可选)</td>
+      <td style="padding: 6px; font-size: 10px; color: #a6adc8;">SELECT * FROM tasks WHERE ...<br>返回匹配的任务列表</td>
+      <td style="padding: 6px; font-size: 10px;">{ tasks: [...], count }</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px; color: #cba6f7; font-weight: 600;">get_now</td>
+      <td style="padding: 6px; color: #f9e2af;">系统</td>
+      <td style="padding: 6px; font-size: 10px;">— (无参数)</td>
+      <td style="padding: 6px; font-size: 10px; color: #a6adc8;">new Date() → 格式化返回</td>
+      <td style="padding: 6px; font-size: 10px;">{ datetime: "2026-06-04 15:30", weekday: "星期四", week: "W23" }</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #313244;">
+      <td style="padding: 6px; color: #cba6f7; font-weight: 600;">confirm_with_user</td>
+      <td style="padding: 6px; color: #f9e2af;">交互</td>
+      <td style="padding: 6px; font-size: 10px;">question, options[]</td>
+      <td style="padding: 6px; font-size: 10px; color: #a6adc8;">不是真正的"执行"<br>而是向 Renderer 发送确认请求<br>等待用户选择后继续</td>
+      <td style="padding: 6px; font-size: 10px;">{ user_choice, confirmed }</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px; color: #a6e3a1; font-weight: 600;">complete_task</td>
+      <td style="padding: 6px; color: #89b4fa;">数据</td>
+      <td style="padding: 6px; font-size: 10px;">task_id</td>
+      <td style="padding: 6px; font-size: 10px; color: #a6adc8;">UPDATE tasks SET status='done'<br>触发折叠 + 压缩</td>
+      <td style="padding: 6px; font-size: 10px;">{ task_id, event }</td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>🔄 完整调用链路（以 update_task 为例）</h3>
+  <div class="mockup">
+    <div class="mockup-header">用户说"改到3点" → LLM 决策 → Tool 执行 → 回复</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.6;">
+
+<span style="color: #6c7086;">Step 1: Renderer → Main (IPC 'chat:send')</span>
+{ userMessage: "@项目评审会 改到下午3点", explicitTaskId: "t-001" }
+
+<span style="color: #6c7086;">Step 2: ContextBuilder 组装 messages + tools 定义</span>
+messages = [systemPrompt, activeTasks, activeMessages, userMsg]
+tools    = [add_task, update_task, delete_task, query_tasks, get_now, complete_task, confirm_with_user]
+
+<span style="color: #6c7086;">Step 3: DeepSeek API 调用</span>
+→ choices[0].message.tool_calls = [{
+    id: "call_abc",
+    function: { name: "update_task", arguments: '{"task_id":"t-001","time":"15:00"}' }
+}]
+
+<span style="color: #6c7086;">Step 4: ToolRegistry.execute("update_task", {task_id:"t-001", time:"15:00"})</span>
+→ db.prepare("UPDATE tasks SET time='15:00', updated_at=? WHERE id=?").run(now, "t-001")
+→ 插入一条 assistant 消息（含 tool_call 信息）到 chat_messages，task_id=t-001
+→ 返回 { success: true, task_id: "t-001", changes: {time: "15:00"} }
+
+<span style="color: #6c7086;">Step 5: 结果送回 DeepSeek，生成自然语言回复</span>
+→ "已修改：项目评审会改为 6月5日 15:00 @ 3号会议室"
+
+<span style="color: #6c7086;">Step 6: Main → Renderer 返回完整结果</span>
+→ 聊天面板追加 assistant 消息
+→ 日历视图刷新（taskStore.loadTasks 重新查询）</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🧩 Tool Registry 代码结构</h3>
+  <div class="mockup">
+    <div class="mockup-header">Main Process · src/main/tools/</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.6;">
+<span style="color: #6c7086;">// src/main/tools/registry.ts</span>
+<span style="color: #cba6f7;">interface</span> ToolDefinition {
+  name: <span style="color: #a6e3a1;">string</span>;
+  description: <span style="color: #a6e3a1;">string</span>;        <span style="color: #6c7086;">// 给 LLM 看的功能描述</span>
+  parameters: <span style="color: #a6e3a1;">JSONSchema</span>;     <span style="color: #6c7086;">// OpenAI function calling 格式</span>
+  handler: <span style="color: #a6e3a1;">(args: any) => Promise&lt;any&gt;</span>;  <span style="color: #6c7086;">// 实际执行函数</span>
+  requiresConfirmation?: <span style="color: #a6e3a1;">boolean</span>;  <span style="color: #6c7086;">// delete 操作需要二次确认</span>
+}
+
+<span style="color: #cba6f7;">class</span> <span style="color: #f9e2af;">ToolRegistry</span> {
+  <span style="color: #cba6f7;">private</span> tools: Map&lt;<span style="color: #a6e3a1;">string</span>, ToolDefinition&gt; = <span style="color: #cba6f7;">new</span> Map();
+
+  register(tool: ToolDefinition) { ... }      <span style="color: #6c7086;">// 注册一个 tool</span>
+  getOpenAITools() { ... }                    <span style="color: #6c7086;">// 转为 OpenAI tool 格式发给 API</span>
+  <span style="color: #cba6f7;">async</span> execute(name: <span style="color: #a6e3a1;">string</span>, args: <span style="color: #a6e3a1;">any</span>) { ... }  <span style="color: #6c7086;">// 执行 tool handler</span>
+}
+
+<span style="color: #6c7086;">// 初始化时注册全部 tool</span>
+registry.register(addTaskTool);      <span style="color: #6c7086;">// → handler 内调用 db.ts</span>
+registry.register(updateTaskTool);   <span style="color: #6c7086;">// → handler 内调用 db.ts</span>
+registry.register(deleteTaskTool);   <span style="color: #6c7086;">// → requiresConfirmation = true</span>
+registry.register(queryTasksTool);   <span style="color: #6c7086;">// → handler 内调用 db.ts</span>
+registry.register(getNowTool);       <span style="color: #6c7086;">// → handler 内调用 new Date()</span>
+registry.register(completeTaskTool); <span style="color: #6c7086;">// → handler 内调用 db.ts + 折叠逻辑</span>
+registry.register(confirmTool);      <span style="color: #6c7086;">// → 暂停，等待用户交互</span></pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>📁 最终项目结构</h3>
+  <div class="mockup">
+    <div class="mockup-header">src/ 目录</div>
+    <div class="mockup-body">
+      <pre style="font-size: 10px; color: #a6adc8; line-height: 1.7;">
+src/
+├── main/                          <span style="color: #6c7086;">← Electron Main Process</span>
+│   ├── index.ts                   <span style="color: #6c7086;">入口: 创建窗口、托盘、IPC 注册</span>
+│   ├── db.ts                      <span style="color: #6c7086;">SQLite 初始化 + 迁移 + CRUD 方法</span>
+│   ├── tools/                     <span style="color: #6c7086;">Tool Registry + 全部 tool 定义</span>
+│   │   ├── registry.ts
+│   │   ├── task-tools.ts          <span style="color: #6c7086;">add_task, update_task, delete_task, query_tasks, complete_task</span>
+│   │   ├── system-tools.ts        <span style="color: #6c7086;">get_now</span>
+│   │   └── interact-tools.ts      <span style="color: #6c7086;">confirm_with_user</span>
+│   ├── llm.ts                     <span style="color: #6c7086;">DeepSeek API 调用 + ContextBuilder</span>
+│   ├── reminder.ts                <span style="color: #6c7086;">定时轮询 + Notification 触发</span>
+│   ├── compressor.ts              <span style="color: #6c7086;">每日压缩 + 消息折叠逻辑</span>
+│   ├── tray.ts                    <span style="color: #6c7086;">系统托盘菜单</span>
+│   └── ipc-handlers.ts            <span style="color: #6c7086;">IPC 通道注册 (task:*, chat:*, config:*)</span>
+│
+├── renderer/                      <span style="color: #6c7086;">← React 前端</span>
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── layout/                <span style="color: #6c7086;">Sidebar, MainContent</span>
+│   │   ├── calendar/              <span style="color: #6c7086;">MonthView, WeekView, TodayView, DayCell, TaskRow</span>
+│   │   ├── chat/                  <span style="color: #6c7086;">ChatPanel, MessageList, ChatInput, MentionPopup</span>
+│   │   └── settings/             <span style="color: #6c7086;">SettingsDialog</span>
+│   ├── stores/                    <span style="color: #6c7086;">Zustand: taskStore, chatStore, viewStore, configStore</span>
+│   └── hooks/                     <span style="color: #6c7086;">useIPC, useMention, useNotification</span>
+│
+└── shared/                        <span style="color: #6c7086;">← Main & Renderer 共享类型</span>
+    └── types.ts                   <span style="color: #6c7086;">Task, Message, ToolCall, Config, IPC channels</span></pre>
+    </div>
+  </div>
+</div>

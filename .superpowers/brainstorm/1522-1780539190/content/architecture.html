@@ -1,0 +1,114 @@
+<h2>copy2list — 技术架构 & UI 布局</h2>
+<p class="subtitle">Electron 桌面应用 · 本地优先 · DeepSeek 驱动</p>
+
+<div class="section">
+  <h3>🏗️ 整体架构</h3>
+  <div class="mockup">
+    <div class="mockup-header">Electron App Architecture</div>
+    <div class="mockup-body">
+      <div style="font-family: monospace; font-size: 12px; line-height: 1.8;">
+        <div style="background: #313244; padding: 10px; border-radius: 6px; margin-bottom: 8px;">
+          <span style="color: #cba6f7; font-weight: bold;">┌─ Main Process (Node.js) ─────────────────────────┐</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">🖥️  BrowserWindow</span>  — 主窗口管理                    <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">🔔 SystemTray</span>      — 系统托盘 + 右键菜单              <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">📢 Notification</span>    — Windows 原生通知                <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">🗄️  SQLite (better-sqlite3)</span> — 本地数据库            <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">⏰ ReminderService</span> — 定时轮询，到点触发通知          <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">🔌 IPC Handlers</span>   — 与渲染进程通信                  <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #cba6f7;">└──────────────────────────────────────────────────┘</span><br>
+          <span style="color: #a6adc8; padding-left: 20px;">↕ IPC (contextBridge)</span><br>
+          <span style="color: #cba6f7; font-weight: bold;">┌─ Renderer Process (Chromium) ────────────────────┐</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">⚛️  React + TypeScript</span>                         <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">📅 CalendarView</span> — 月/周/Today 三视图             <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">💬 ChatView</span>     — 自然语言输入 + JSON 预览          <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">🤖 LLMService</span>  — DeepSeek API 调用 (fetch)         <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #89b4fa;">│</span> <span style="color: #f9e2af;">📋 TaskStore</span>   — Zustand 状态管理 + IPC 持久化       <span style="color: #89b4fa;">│</span><br>
+          <span style="color: #cba6f7;">└──────────────────────────────────────────────────┘</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>📐 窗口布局 (1200×780)</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">月视图</div>
+      <div class="mockup-body">
+        <div style="display: flex; height: 320px;">
+          <div style="flex: 3; background: #1e1e2e; padding: 10px; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span style="color: #a6adc8;">◀</span>
+              <span style="color: #cdd6f4; font-weight: 600;">2026年6月</span>
+              <span style="color: #a6adc8;">▶</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; font-size: 8px; color: #6c7086; text-align: center;">
+              <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; font-size: 9px; text-align: center; margin-top: 4px;">
+              <span style="color: #6c7086;">26</span><span style="color: #6c7086;">27</span><span style="color: #6c7086;">28</span><span style="color: #6c7086;">29</span><span style="color: #6c7086;">30</span><span style="color: #6c7086;">31</span><span style="color: #a6adc8;">1</span>
+              <span style="color: #a6adc8;">2</span><span style="color: #a6adc8;">3</span><span style="background: #cba6f7; color: #1e1e2e; border-radius: 50%;">4</span><span style="color: #a6adc8;">5</span><span style="color: #a6adc8;">6</span><span style="color: #a6adc8;">7</span><span style="color: #a6adc8;">8</span>
+            </div>
+            <div style="border-top: 1px solid #313244; margin-top: 6px; padding-top: 6px;">
+              <div style="font-size: 10px; color: #cdd6f4; font-weight: 600;">6月4日 (今天)</div>
+              <div style="font-size: 9px; color: #a6adc8; margin-top: 4px; line-height: 1.6;">
+                <div style="background: #313244; padding: 2px 4px; border-radius: 2px; border-left: 3px solid #f38ba8;">09:00 | 办公室 | 张总 | 项目评审</div>
+                <div style="background: #313244; padding: 2px 4px; border-radius: 2px; border-left: 3px solid #89b4fa;">14:00 | 星巴克 | 小李 | 喝咖啡</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 2; background: #181825; padding: 10px; border-radius: 4px; margin-left: 4px;">
+            <div style="font-size: 11px; color: #cdd6f4; font-weight: 600; margin-bottom: 6px;">💬 Chat</div>
+            <div style="font-size: 9px; color: #a6adc8;">
+              <div style="background: #313244; padding: 6px; border-radius: 4px; margin-bottom: 4px;">
+                <span style="color: #89b4fa;">🤖</span> 输入日程，我帮你结构化
+              </div>
+              <div style="background: #45475a; padding: 6px; border-radius: 4px; margin-bottom: 4px; margin-left: 12px;">
+                <span style="color: #f9e2af;">👤</span> 明天下午3点跟王经理在会议室讨论Q2预算
+              </div>
+              <div style="background: #313244; padding: 6px; border-radius: 4px;">
+                <span style="color: #89b4fa;">🤖</span> 已添加 ↓<br>
+                <code style="font-size: 8px; color: #a6e3a1;">{"time":"15:00","place":"会议室","person":"王经理","event":"Q2预算讨论"}</code>
+              </div>
+            </div>
+            <div style="display: flex; margin-top: 6px; gap: 2px;">
+              <div style="flex:1; background: #313244; border-radius: 3px; padding: 4px; font-size: 8px; color: #6c7086;">输入日程...</div>
+              <div style="background: #cba6f7; color: #1e1e2e; border-radius: 3px; padding: 4px 8px; font-size: 8px;">发送</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">周视图 / Today</div>
+      <div class="mockup-body">
+        <div style="height: 320px;">
+          <div style="font-size: 10px; color: #a6adc8; margin-bottom: 6px;">周视图 — 6月1日 ~ 6月7日</div>
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; height: 120px;">
+            <div style="background: #313244; border-radius: 4px; padding: 3px; font-size: 8px; border-top: 3px solid #45475a;"><span style="color: #6c7086;">1 一</span></div>
+            <div style="background: #313244; border-radius: 4px; padding: 3px; font-size: 8px; border-top: 3px solid #45475a;"><span style="color: #6c7086;">2 二</span></div>
+            <div style="background: #313244; border-radius: 4px; padding: 3px; font-size: 8px; border-top: 3px solid #45475a;"><span style="color: #6c7086;">3 三</span></div>
+            <div style="background: #1e1e2e; border-radius: 4px; padding: 3px; font-size: 8px; border-top: 3px solid #cba6f7;">
+              <span style="color: #cba6f7; font-weight: 600;">4 四</span>
+              <div style="color: #a6adc8; margin-top: 2px; background: #45475a; padding: 1px 3px; border-radius: 2px;">09:00 评审</div>
+              <div style="color: #a6adc8; margin-top: 1px; background: #45475a; padding: 1px 3px; border-radius: 2px;">14:00 咖啡</div>
+            </div>
+            <div style="background: #313244; border-radius: 4px; padding: 3px; font-size: 8px;"><span style="color: #6c7086;">5 五</span></div>
+            <div style="background: #313244; border-radius: 4px; padding: 3px; font-size: 8px;"><span style="color: #6c7086;">6 六</span></div>
+            <div style="background: #313244; border-radius: 4px; padding: 3px; font-size: 8px;"><span style="color: #6c7086;">7 日</span></div>
+          </div>
+          <div style="font-size: 10px; color: #a6adc8; margin-top: 12px; margin-bottom: 4px;">Today — 6月4日 星期四</div>
+          <div style="font-size: 9px; color: #a6adc8; line-height: 2;">
+            <div style="display: flex; align-items: center; gap: 8px; background: #313244; padding: 4px 8px; border-radius: 4px; margin-bottom: 2px;">
+              <span style="color: #f38ba8;">●</span><span style="width: 36px;">09:00</span><span>📍 办公室</span><span>👤 张总</span><span style="flex:1;">项目评审会</span><span style="color: #a6e3a1; font-size: 8px;">✓</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; background: #313244; padding: 4px 8px; border-radius: 4px; margin-bottom: 2px;">
+              <span style="color: #89b4fa;">●</span><span style="width: 36px;">14:00</span><span>📍 星巴克</span><span>👤 小李</span><span style="flex:1;">喝咖啡聊天</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
