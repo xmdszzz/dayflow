@@ -9,7 +9,9 @@ const nowISO = () => new Date().toISOString()
 let db: Database.Database
 
 export function initDatabase(): void {
-  const dbPath = path.join(app.getPath('userData'), 'dayflow.db')
+  // Use separate databases for dev vs release to avoid conflicts
+  const dbName = app.isPackaged ? 'dayflow.db' : 'dayflow-dev.db'
+  const dbPath = path.join(app.getPath('userData'), dbName)
   db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
