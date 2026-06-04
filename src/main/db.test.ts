@@ -78,6 +78,11 @@ describe('DB Operations (integration)', () => {
 
   afterAll(() => { try { db?.close() } catch { /* ok */ } })
 
+  beforeEach(() => {
+    // Clear all data between tests to avoid state leakage
+    try { db?.exec('DELETE FROM tasks') } catch { /* ok */ }
+  })
+
   it('connects to in-memory database', () => {
     if (!db) return
     const row = db.prepare('SELECT 1 as n').get() as { n: number }
