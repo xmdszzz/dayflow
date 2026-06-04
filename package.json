@@ -4,7 +4,7 @@
     "description": "Windows desktop todo list with AI chat",
     "main": "./out/main/index.js",
     "scripts": {
-        "dev": "cross-env ELECTRON_RUN_AS_NODE= electron-vite dev",
+        "dev": "powershell -NoProfile -Command \"Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; electron-vite dev\"",
         "build": "electron-vite build",
         "preview": "electron-vite preview",
         "pack": "electron-builder --dir",
