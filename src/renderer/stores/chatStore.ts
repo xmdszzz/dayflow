@@ -10,7 +10,7 @@ interface ChatState {
   pendingConfirm: PendingConfirm | null
   sendMessage: (text: string) => Promise<void>
   confirmAction: (choice: string) => Promise<void>
-  cancelAction: () => void
+  cancelAction: () => Promise<void>
   setPendingConfirm: (p: PendingConfirm | null) => void
 }
 
@@ -33,6 +33,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     await window.api.invoke('chat:confirm', choice)
     set({ pendingConfirm: null })
   },
-  cancelAction: () => set({ pendingConfirm: null }),
+  cancelAction: async () => { await window.api.invoke('chat:cancel'); set({ pendingConfirm: null }) },
   setPendingConfirm: (p) => set({ pendingConfirm: p }),
 }))
