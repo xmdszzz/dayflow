@@ -4,6 +4,7 @@ import type { TaskInput } from '../shared/types'
 import { sendChatMessage } from './llm'
 import { resolveConfirmation, cancelConfirmation } from './tools/interact-tools'
 import { compressToday } from './compressor'
+import { checkForUpdates, downloadUpdate, quitAndInstall } from './updater'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('task:list', (_e, startDate: string, endDate: string) => {
@@ -118,5 +119,18 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('window:stopResize', () => {
     if (resizeInterval) { clearInterval(resizeInterval); resizeInterval = null }
+  })
+
+  // ── Auto-updater ──────────────────────────────────────────────
+  ipcMain.handle('update:check', async () => {
+    return checkForUpdates()
+  })
+
+  ipcMain.handle('update:download', async () => {
+    await downloadUpdate()
+  })
+
+  ipcMain.handle('update:install', () => {
+    quitAndInstall()
   })
 }

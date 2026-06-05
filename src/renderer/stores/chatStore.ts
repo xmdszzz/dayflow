@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useTaskStore } from '@/stores/taskStore'
 
 export interface ToolCallEntry {
   name: string
@@ -50,6 +51,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }],
         loading: false,
       }))
+
+      // Bug #2: Explicitly reload task store when tasks were created/modified via chat.
+      // The calendar views' chatLen watcher may race (first reload fires before the
+      // task exists in DB). This guaranteed reload ensures the new task appears.
+      if (result.affectedTasks && result.affectedTasks.length > 0) {
+        const now = new Date()
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+        const endDate = new Date(Date.now() + 60 * 86400000)
+        const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
+        useTaskStore.getState().loadTasks(today, end)
+      }
     } catch (e) {
       set((s) => ({ messages: [...s.messages, { role: 'assistant', content: `错误: ${String(e)}` }], loading: false }))
     }

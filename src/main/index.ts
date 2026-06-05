@@ -6,6 +6,7 @@ import { compressDate } from './compressor'
 import { format, subDays } from 'date-fns'
 import { startReminderService } from './reminder'
 import { createTray } from './tray'
+import { initUpdater, checkForUpdates } from './updater'
 import './tools/task-tools'
 import './tools/system-tools'
 import './tools/interact-tools'
@@ -73,6 +74,12 @@ app.whenReady().then(() => {
   app.setLoginItemSettings({ openAtLogin: getConfig('open_at_login') === 'true' })
   registerIpcHandlers()
   createWindow()
+  if (mainWindow) {
+    // Init auto-updater (checks GitHub Releases, DB in userData is never touched)
+    initUpdater(mainWindow)
+    // Check for updates 5s after startup (don't block app launch)
+    setTimeout(() => { checkForUpdates() }, 5_000)
+  }
   createTray()
   startReminderService()
   scheduleCompression()

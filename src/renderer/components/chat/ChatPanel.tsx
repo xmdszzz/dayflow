@@ -108,8 +108,10 @@ export default function ChatPanel({ visible, onToggle }: ChatPanelProps) {
     return false
   }
 
+  // min-h-0 overrides flex min-height:auto, allowing this container to shrink
+  // below its content height so its flex children (MessageList) can scroll
   return (
-    <div className="w-full h-full bg-[#181825] flex flex-col overflow-hidden">
+    <div className="w-full flex-1 min-h-0 bg-[#181825] flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[#313244]">
         <h3 className="text-sm font-semibold">💬 AI 助手</h3>
         <button onClick={onToggle} className="text-[#6c7086] hover:text-[#cdd6f4]"><X size={16} /></button>

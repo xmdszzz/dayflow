@@ -53,8 +53,11 @@ export default function MainLayout() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  // min-h-0 overrides flex min-height:auto so MainLayout is constrained to
+  // the available viewport height; without it, MainLayout grows to fit its
+  // content and the chat sidebar never scrolls
   return (
-    <div className="flex-1 flex">
+    <div className="flex-1 flex min-h-0">
       <Sidebar currentView={view} onNavigate={setView} onSettings={() => setSettingsOpen(true)} />
 
       <div className="flex-1 flex overflow-hidden">
@@ -70,7 +73,7 @@ export default function MainLayout() {
             onMouseDown={onHandleDown}
             className="w-[6px] flex-shrink-0 cursor-col-resize transition-colors hover:bg-[#cba6f7] bg-transparent self-stretch"
           />
-          <div className="flex-shrink-0 border-l border-[#313244] self-stretch overflow-hidden" style={{ width: chatWidth, minWidth: CHAT_MIN, maxWidth: CHAT_MAX }}>
+          <div className="flex-shrink-0 border-l border-[#313244] self-stretch flex flex-col overflow-hidden" style={{ width: chatWidth, minWidth: CHAT_MIN, maxWidth: CHAT_MAX }}>
             <ChatPanel visible onToggle={() => setChatVisible(false)} />
           </div>
         </>

@@ -1,6 +1,6 @@
 {
     "name": "dayflow",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "Windows desktop todo list with AI chat",
     "main": "./out/main/index.js",
     "scripts": {
@@ -9,6 +9,7 @@
         "preview": "electron-vite preview",
         "pack": "electron-builder --dir",
         "dist": "electron-vite build && electron-builder --publish never",
+        "dist:publish": "electron-vite build && electron-builder --publish always",
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage"
@@ -16,6 +17,7 @@
     "dependencies": {
         "better-sqlite3": "^11.0.0",
         "date-fns": "^4.0.0",
+        "electron-updater": "^6.8.3",
         "lucide-react": "^1.17.0",
         "openai": "^4.70.0",
         "uuid": "^10.0.0",

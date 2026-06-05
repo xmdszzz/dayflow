@@ -1,6 +1,7 @@
 import './commands'
 import TitleBar from './components/layout/TitleBar'
 import MainLayout from './components/layout/MainLayout'
+import UpdateNotification from './components/layout/UpdateNotification'
 import { useWindowResize } from './hooks/useWindowResize'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
 
       <div className="h-screen bg-[#1e1e2e] text-[#cdd6f4] flex flex-col overflow-hidden">
         <TitleBar />
+        <UpdateNotification />
         <MainLayout />
       </div>
     </>

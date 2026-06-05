@@ -1,5 +1,12 @@
 export {}
 
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'
+  version?: string
+  percent?: number
+  error?: string
+}
+
 declare global {
   interface Window {
     api: {

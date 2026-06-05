@@ -49,16 +49,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build
-        run: npm run build
-
-      - name: Package
-        run: npm run dist
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.exe
-          generate_release_notes: true
+      - name: Build & Publish
+        # electron-builder --publish always creates the GitHub Release
+        # and uploads .exe + latest.yml + .blockmap for auto-update
+        run: npm run dist:publish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
